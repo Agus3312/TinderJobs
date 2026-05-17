@@ -1,6 +1,6 @@
 "use client";
 
-import { Zap, Shuffle } from "lucide-react";
+import { LogOut, Zap, Shuffle } from "lucide-react";
 import type { Role } from "@/types/user";
 
 interface HeaderProps {
@@ -8,9 +8,10 @@ interface HeaderProps {
   matchScore?: number;
   activeRole?: Role;
   onSwitchRole?: () => void;
+  onLogout?: () => void;
 }
 
-export function Header({ likedCount, matchScore, activeRole, onSwitchRole }: HeaderProps) {
+export function Header({ likedCount, matchScore, activeRole, onSwitchRole, onLogout }: HeaderProps) {
   return (
     <header
       className="fixed top-0 left-0 right-0 z-50 flex items-center justify-between px-5"
@@ -60,13 +61,28 @@ export function Header({ likedCount, matchScore, activeRole, onSwitchRole }: Hea
         )}
       </div>
 
-      {/* Liked count */}
-      <span
-        className="text-sm tabular-nums"
-        style={{ color: "var(--text-muted)", fontFamily: "var(--font-mono)" }}
-      >
-        {likedCount} saved
-      </span>
+      {/* Right side: liked count + logout */}
+      <div className="flex items-center gap-3">
+        <span
+          className="text-sm tabular-nums"
+          style={{ color: "var(--text-muted)", fontFamily: "var(--font-mono)" }}
+        >
+          {likedCount} saved
+        </span>
+        {onLogout && (
+          <button
+            onClick={onLogout}
+            className="flex items-center justify-center w-8 h-8 rounded-md transition-colors duration-150 active:scale-95"
+            style={{
+              backgroundColor: "var(--bg-elevated)",
+              border: "1px solid var(--border)",
+            }}
+            title="Logout"
+          >
+            <LogOut className="w-4 h-4" style={{ color: "var(--text-muted)" }} />
+          </button>
+        )}
+      </div>
     </header>
   );
 }
