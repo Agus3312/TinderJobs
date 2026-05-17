@@ -1,0 +1,48 @@
+# SDD Configuration - Tinder de Trabajo
+
+schema: spec-driven
+project: tinder-de-trabajo
+mode: hybrid
+
+context: |
+  Tinder-style job search app for programmers with AI auto-apply.
+  Stack: Next.js 16 (App Router), React 19, Tailwind CSS 4, Framer Motion.
+  Auth: Email-based (planned)
+  AI: Groq + Gemini 2.5 Flash
+  Target: LATAM, US, EU developers seeking remote/hybrid jobs
+
+strict_tdd: false  # No automated test runner detected (Vitest/Jest). Manual/Browser verification used.
+
+testing:
+  test_runner: null
+  layers:
+    unit: ❌
+    integration: ❌
+    e2e: ❌
+  quality_tools:
+    linter: eslint
+    type_checker: tsc
+    formatter: prettier
+
+rules:
+  proposal:
+    - Include rollback plan for risky changes
+    - Identify affected modules/packages
+  specs:
+    - Use Given/When/Then format for scenarios
+    - Use RFC 2119 keywords (MUST, SHALL, SHOULD, MAY)
+  design:
+    - Include sequence diagrams for complex flows
+    - Document architecture decisions with rationale
+  tasks:
+    - Group tasks by phase (infrastructure, implementation, testing)
+    - Use hierarchical numbering (1.1, 1.2, etc.)
+    - Keep tasks small enough to complete in one session
+  apply:
+    - Follow existing code patterns and conventions
+    - Load relevant coding skills for the project stack
+  verify:
+    - Run tests if test infrastructure exists
+    - Compare implementation against every spec scenario
+  archive:
+    - Warn before merging destructive deltas (large removals)

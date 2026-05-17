@@ -1,0 +1,131 @@
+@import "tailwindcss";
+
+:root {
+  /* Gradient colors */
+  --gradient-start: #8B5CF6;
+  --gradient-mid: #6366F1;
+  --gradient-end: #3B82F6;
+
+  /* Background colors */
+  --bg-dark: #0A0A0F;
+  --bg-card: rgba(255, 255, 255, 0.03);
+  --bg-card-solid: #1A1A24;
+
+  /* Text colors */
+  --text-primary: #FFFFFF;
+  --text-secondary: #A1A1AA;
+  --text-muted: #71717A;
+
+  /* Accent colors */
+  --accent-green: #10B981;
+  --accent-red: #EF4444;
+  --accent-yellow: #F59E0B;
+  --accent-purple: #8B5CF6;
+  --glow-color: rgba(139, 92, 246, 0.4);
+
+  /* Spacing tokens */
+  --spacing-xs: 4px;
+  --spacing-sm: 8px;
+  --spacing-md: 16px;
+  --spacing-lg: 24px;
+  --spacing-xl: 32px;
+  --spacing-2xl: 48px;
+
+  /* Card dimensions — responsive via Tailwind, these are fallback tokens */
+  --card-width-mobile: 360px;
+  --card-width-tablet: 400px;
+  --card-height: 520px;
+  --card-height-desktop: 560px;
+  --card-border-radius: 28px;
+  --card-padding: 24px;
+
+  /* Shadows */
+  --shadow-card:
+    0 4px 6px -1px rgba(0, 0, 0, 0.1),
+    0 10px 15px -3px rgba(0, 0, 0, 0.1),
+    0 0 0 1px rgba(255, 255, 255, 0.05),
+    0 0 40px -10px var(--glow-color);
+  --shadow-glow: 0 0 80px -20px var(--glow-color);
+
+  /* Glassmorphism */
+  --glass-bg: rgba(255, 255, 255, 0.05);
+  --glass-blur: 20px;
+  --glass-border: 1px solid rgba(255, 255, 255, 0.1);
+
+  /* Original variables */
+  --background: var(--bg-dark);
+  --foreground: var(--text-primary);
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --font-sans: var(--font-inter), Inter, system-ui, sans-serif;
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-inter), Inter, system-ui, sans-serif;
+}
+
+/* Glassmorphism utility class */
+.glass {
+  background: var(--glass-bg);
+  backdrop-filter: blur(var(--glass-blur));
+  -webkit-backdrop-filter: blur(var(--glass-blur));
+  border: var(--glass-border);
+}
+
+/* Glow animation */
+@keyframes glow-pulse {
+  0%, 100% {
+    opacity: 0.3;
+  }
+  50% {
+    opacity: 0.5;
+  }
+}
+
+.glow-animation {
+  animation: glow-pulse 4s ease-in-out infinite;
+}
+
+/* Glassmorphism fallback class — applied as additional className on glass elements.
+   In normal browsers inline styles win. In Safari (no backdrop-filter),
+   the !important inside @supports not overrides the inline transparent background. */
+.glass-fallback {
+  /* Default: same as inline, noop in modern browsers */
+  background: rgba(26, 26, 36, 0.95);
+}
+
+/* Fallback for browsers without backdrop-filter support */
+@supports not (backdrop-filter: blur(20px)) {
+  .glass {
+    background: rgba(26, 26, 36, 0.95);
+  }
+
+  .glass-fallback {
+    background: rgba(26, 26, 36, 0.95) !important;
+  }
+}
+
+/* Scrollbar hide utility */
+.scrollbar-hide {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;
+}
+
+/* Reduced motion support */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
