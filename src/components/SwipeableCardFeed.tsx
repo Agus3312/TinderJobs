@@ -149,10 +149,6 @@ export function SwipeableCardFeed<T>({
                 );
               }}
               onDragEnd={handleDragEnd}
-              // Double-click to open detail modal (if renderDetail provided)
-              onDoubleClick={() => {
-                if (renderDetail) setShowDetail(true);
-              }}
               initial={{ opacity: 0, y: 8 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{
