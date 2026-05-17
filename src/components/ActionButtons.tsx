@@ -1,7 +1,6 @@
 "use client";
 
-import { X, Bookmark, Rocket } from "lucide-react";
-import { motion } from "framer-motion";
+import { X, Bookmark, ArrowRight } from "lucide-react";
 
 interface ActionButtonsProps {
   onReject: () => void;
@@ -12,70 +11,50 @@ interface ActionButtonsProps {
 
 export function ActionButtons({ onReject, onSave, onApply, isDisabled = false }: ActionButtonsProps) {
   return (
-    <div className="flex items-center justify-center gap-3">
-      {/* Reject Button - Pill */}
-      <motion.button
+    <div className="flex items-center justify-center gap-2.5">
+      {/* Reject */}
+      <button
         onClick={onReject}
         disabled={isDisabled}
-        className="flex items-center gap-2 px-5 py-2.5 rounded-full transition-colors"
+        className="flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-medium transition-colors duration-150 active:scale-95"
         style={{
-          backgroundColor: "rgba(239, 68, 68, 0.08)",
-          border: "1px solid rgba(239, 68, 68, 0.2)",
-          backdropFilter: "blur(10px)",
+          backgroundColor: "var(--danger-dim)",
+          border: "1px solid var(--danger-border)",
+          color: "var(--danger)",
         }}
-        whileHover={{
-          scale: 1.05,
-          backgroundColor: "rgba(239, 68, 68, 0.15)",
-          boxShadow: "0 0 20px rgba(239, 68, 68, 0.2)",
-        }}
-        whileTap={{ scale: 0.95 }}
-        transition={{ duration: 0.15 }}
       >
-        <X className="w-4 h-4 text-[#EF4444]" />
-        <span className="text-sm font-medium text-[#EF4444]">Pass</span>
-      </motion.button>
+        <X className="w-3.5 h-3.5" />
+        <span>Pass</span>
+      </button>
 
-      {/* Save Button - Pill */}
-      <motion.button
+      {/* Save */}
+      <button
         onClick={onSave}
         disabled={isDisabled}
-        className="flex items-center gap-2 px-5 py-2.5 rounded-full transition-colors"
+        className="flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-medium transition-colors duration-150 active:scale-95"
         style={{
-          backgroundColor: "rgba(245, 158, 11, 0.08)",
-          border: "1px solid rgba(245, 158, 11, 0.2)",
-          backdropFilter: "blur(10px)",
+          backgroundColor: "var(--bg-elevated)",
+          border: "1px solid var(--border)",
+          color: "var(--text-secondary)",
         }}
-        whileHover={{
-          scale: 1.05,
-          backgroundColor: "rgba(245, 158, 11, 0.15)",
-          boxShadow: "0 0 20px rgba(245, 158, 11, 0.2)",
-        }}
-        whileTap={{ scale: 0.95 }}
-        transition={{ duration: 0.15 }}
       >
-        <Bookmark className="w-4 h-4 text-[#F59E0B]" />
-        <span className="text-sm font-medium text-[#F59E0B]">Save</span>
-      </motion.button>
+        <Bookmark className="w-3.5 h-3.5" />
+        <span>Save</span>
+      </button>
 
-      {/* Apply Button - Gradient Pill */}
-      <motion.button
+      {/* Apply — accent color, stands out */}
+      <button
         onClick={onApply}
         disabled={isDisabled}
-        className="flex items-center gap-2 px-5 py-2.5 rounded-full"
+        className="flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-semibold transition-all duration-150 active:scale-95"
         style={{
-          background: "linear-gradient(135deg, #8B5CF6 0%, #6366F1 50%, #3B82F6 100%)",
-          boxShadow: "0 4px 15px rgba(139, 92, 246, 0.3)",
+          backgroundColor: "var(--accent)",
+          color: "#000",
         }}
-        whileHover={{
-          scale: 1.05,
-          boxShadow: "0 6px 25px rgba(139, 92, 246, 0.5)",
-        }}
-        whileTap={{ scale: 0.95 }}
-        transition={{ duration: 0.15 }}
       >
-        <Rocket className="w-4 h-4 text-white" />
-        <span className="text-sm font-semibold text-white">Apply</span>
-      </motion.button>
+        <ArrowRight className="w-3.5 h-3.5" />
+        <span>Apply</span>
+      </button>
     </div>
   );
 }

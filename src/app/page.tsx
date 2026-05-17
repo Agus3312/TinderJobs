@@ -6,7 +6,6 @@ import { JobCardDisplay } from "@/components/JobCardDisplay";
 import { JobDetailModal } from "@/components/JobDetailModal";
 import { Header } from "@/components/Header";
 import { GlassNavbar } from "@/components/GlassNavbar";
-import { BackgroundGlow } from "@/components/BackgroundGlow";
 import { mockJobs } from "@/data/mockJobs";
 
 const STORAGE_KEYS = {
@@ -26,7 +25,6 @@ export default function Home() {
   const [direction, setDirection] = useState<"left" | "right">("right");
   const [showDetail, setShowDetail] = useState(false);
 
-  // Load localStorage
   useEffect(() => {
     if (typeof window === "undefined") return;
     const storedLiked = localStorage.getItem(STORAGE_KEYS.likedJobs);
@@ -38,7 +36,6 @@ export default function Home() {
     setIsLoaded(true);
   }, []);
 
-  // Save localStorage
   useEffect(() => {
     if (isLoaded && typeof window !== "undefined") {
       localStorage.setItem(STORAGE_KEYS.likedJobs, JSON.stringify(likedJobs));
@@ -62,12 +59,11 @@ export default function Home() {
         setPassedJobs((prev) => [...prev, currentJob.id]);
       }
 
-      // Wait for exit animation, then show next card
       setTimeout(() => {
         setCurrentIndex((prev) => prev + 1);
         setSwipeProgress(0);
         setIsAnimating(false);
-      }, 300);
+      }, 200);
     },
     [isAnimating, currentIndex, jobs]
   );
@@ -94,32 +90,28 @@ export default function Home() {
   const remainingJobs = jobs.length - currentIndex;
   const currentJob = currentIndex < jobs.length ? jobs[currentIndex] : null;
 
-  // Swipe overlay intensities
-  const nopeOpacity = Math.max(0, Math.min(0.5, Math.abs(Math.min(0, swipeProgress)) * 0.5));
-  const likeOpacity = Math.max(0, Math.min(0.5, Math.max(0, swipeProgress) * 0.5));
-
   return (
-    <div className="relative min-h-screen bg-[#0A0A0F] flex flex-col overflow-hidden">
-      <BackgroundGlow />
+    <div className="relative min-h-screen flex flex-col" style={{ backgroundColor: "var(--bg)" }}>
       <Header likedCount={likedJobs.length} matchScore={currentJob?.matchScore} />
 
-      <main className="flex-1 flex flex-col items-center justify-center px-4 pt-20 pb-28">
+      <main className="flex-1 flex flex-col items-center justify-center px-4 pt-16 pb-16">
         <div className="relative">
           {/* Ghost card behind */}
           {currentJob && currentIndex + 1 < jobs.length && (
             <div
               className="absolute pointer-events-none"
               style={{
-                transform: "scale(0.95) translateY(8px)",
-                opacity: 0.5,
+                transform: "scale(0.96) translateY(6px)",
+                opacity: 0.3,
                 zIndex: 0,
               }}
             >
               <div
-                className="w-[360px] sm:w-[380px] md:w-[400px] rounded-[28px] h-[460px]"
+                className="w-[340px] sm:w-[360px] md:w-[380px] rounded-xl"
                 style={{
-                  backgroundColor: "rgba(255, 255, 255, 0.03)",
-                  border: "1px solid rgba(255, 255, 255, 0.06)",
+                  height: 440,
+                  backgroundColor: "var(--bg-surface)",
+                  border: "1px solid var(--border)",
                 }}
               />
             </div>
@@ -131,54 +123,39 @@ export default function Home() {
                 key={currentIndex}
                 drag={isAnimating ? false : "x"}
                 dragConstraints={{ left: 0, right: 0 }}
-                dragElastic={0.9}
+                dragElastic={0.7}
                 onDrag={(_, info) => {
                   setSwipeProgress(Math.max(-1, Math.min(1, info.offset.x / 200)));
                 }}
                 onDragEnd={handleDragEnd}
                 onDoubleClick={() => setShowDetail(true)}
-                initial={{ scale: 0.95, opacity: 0, y: 10 }}
-                animate={{ scale: 1, opacity: 1, y: 0 }}
+                initial={{ opacity: 0, y: 8 }}
+                animate={{ opacity: 1, y: 0 }}
                 exit={{
-                  x: direction === "right" ? 400 : -400,
-                  rotate: direction === "right" ? 15 : -15,
+                  x: direction === "right" ? 300 : -300,
                   opacity: 0,
-                  transition: { duration: 0.25, ease: "easeOut" },
+                  transition: { duration: 0.18, ease: "easeOut" },
                 }}
-                transition={{ duration: 0.25, ease: "easeOut" }}
+                transition={{ duration: 0.15, ease: "easeOut" }}
                 className="relative z-10 cursor-grab active:cursor-grabbing touch-none"
               >
                 {/* NOPE overlay */}
-                {swipeProgress < -0.1 && (
+                {swipeProgress < -0.15 && (
                   <div
-                    className="absolute inset-0 z-20 pointer-events-none flex items-center justify-start pl-6 rounded-[28px]"
+                    className="absolute inset-0 z-20 pointer-events-none flex items-center justify-start pl-5 rounded-xl"
                     style={{
-                      background: `linear-gradient(to right, rgba(239,68,68,${nopeOpacity}), transparent 60%)`,
+                      background: `linear-gradient(to right, rgba(239,68,68,${Math.min(0.15, Math.abs(swipeProgress) * 0.2)}), transparent 50%)`,
                     }}
-                  >
-                    <span
-                      className="text-2xl font-bold text-red-500 border-4 border-red-500 rounded-lg px-4 py-1"
-                      style={{ transform: "rotate(-12deg)" }}
-                    >
-                      NOPE
-                    </span>
-                  </div>
+                  />
                 )}
                 {/* LIKE overlay */}
-                {swipeProgress > 0.1 && (
+                {swipeProgress > 0.15 && (
                   <div
-                    className="absolute inset-0 z-20 pointer-events-none flex items-center justify-end pr-6 rounded-[28px]"
+                    className="absolute inset-0 z-20 pointer-events-none flex items-center justify-end pr-5 rounded-xl"
                     style={{
-                      background: `linear-gradient(to left, rgba(16,185,129,${likeOpacity}), transparent 60%)`,
+                      background: `linear-gradient(to left, rgba(16,185,129,${Math.min(0.15, swipeProgress * 0.2)}), transparent 50%)`,
                     }}
-                  >
-                    <span
-                      className="text-2xl font-bold text-emerald-500 border-4 border-emerald-500 rounded-lg px-4 py-1"
-                      style={{ transform: "rotate(12deg)" }}
-                    >
-                      LIKE
-                    </span>
-                  </div>
+                  />
                 )}
 
                 <JobCardDisplay
@@ -192,61 +169,43 @@ export default function Home() {
             ) : (
               <motion.div
                 key="end"
-                initial={{ opacity: 0, scale: 0.9 }}
-                animate={{ opacity: 1, scale: 1 }}
-                transition={{ duration: 0.4 }}
-                className="w-[360px] sm:w-[380px] md:w-[400px] rounded-[28px] p-8 flex flex-col items-center justify-center text-center"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                transition={{ duration: 0.3 }}
+                className="w-[340px] sm:w-[360px] md:w-[380px] rounded-xl p-8 flex flex-col items-center justify-center text-center"
                 style={{
-                  backgroundColor: "rgba(255, 255, 255, 0.05)",
-                  backdropFilter: "blur(20px)",
-                  WebkitBackdropFilter: "blur(20px)",
-                  border: "1px solid rgba(255, 255, 255, 0.1)",
-                  boxShadow: "0 0 40px -10px rgba(139, 92, 246, 0.4)",
+                  backgroundColor: "var(--bg-surface)",
+                  border: "1px solid var(--border)",
                 }}
               >
-                <div className="relative mb-6">
-                  <div
-                    className="absolute inset-0 rounded-full blur-xl"
-                    style={{ background: "radial-gradient(circle, rgba(139,92,246,0.3), transparent 70%)" }}
-                  />
-                  <span className="relative text-6xl">🎉</span>
-                </div>
-                <h2
-                  className="text-2xl font-bold mb-2"
-                  style={{
-                    background: "linear-gradient(to right, #8B5CF6, #6366F1, #3B82F6)",
-                    WebkitBackgroundClip: "text",
-                    WebkitTextFillColor: "transparent",
-                    backgroundClip: "text",
-                  }}
-                >
-                  You&apos;re all caught up!
+                <span className="text-5xl mb-4">✓</span>
+                <h2 className="text-xl font-bold mb-2" style={{ color: "var(--text-primary)" }}>
+                  All done
                 </h2>
-                <p className="text-[#A1A1AA] text-sm leading-relaxed mb-8 max-w-[280px]">
+                <p className="text-sm mb-6 max-w-[280px]" style={{ color: "var(--text-secondary)" }}>
                   You&apos;ve seen all available jobs. Come back later for new opportunities.
                 </p>
-                <div className="flex items-center gap-6 mb-8">
+                <div className="flex items-center gap-6 mb-6">
                   <div className="flex flex-col items-center">
-                    <span className="text-2xl font-bold text-[#10B981]">{likedJobs.length}</span>
-                    <span className="text-xs text-[#71717A]">Liked</span>
+                    <span className="text-xl font-bold tabular-nums" style={{ color: "var(--accent)", fontFamily: "var(--font-mono)" }}>
+                      {likedJobs.length}
+                    </span>
+                    <span className="text-[10px] uppercase tracking-widest" style={{ color: "var(--text-dim)" }}>saved</span>
                   </div>
-                  <div className="w-px h-8 bg-white/10" />
+                  <div style={{ width: 1, height: 24, backgroundColor: "var(--border)" }} />
                   <div className="flex flex-col items-center">
-                    <span className="text-2xl font-bold text-[#EF4444]">{passedJobs.length}</span>
-                    <span className="text-xs text-[#71717A]">Passed</span>
-                  </div>
-                  <div className="w-px h-8 bg-white/10" />
-                  <div className="flex flex-col items-center">
-                    <span className="text-2xl font-bold text-[#8B5CF6]">{likedJobs.length + passedJobs.length}</span>
-                    <span className="text-xs text-[#71717A]">Total</span>
+                    <span className="text-xl font-bold tabular-nums" style={{ color: "var(--danger)", fontFamily: "var(--font-mono)" }}>
+                      {passedJobs.length}
+                    </span>
+                    <span className="text-[10px] uppercase tracking-widest" style={{ color: "var(--text-dim)" }}>passed</span>
                   </div>
                 </div>
                 <button
                   onClick={handleReset}
-                  className="px-8 py-3 rounded-full text-white font-semibold text-sm transition-all hover:opacity-90"
+                  className="px-6 py-2.5 rounded-lg text-sm font-semibold transition-colors duration-150 active:scale-95"
                   style={{
-                    background: "linear-gradient(135deg, #8B5CF6 0%, #6366F1 100%)",
-                    boxShadow: "0 4px 15px rgba(139, 92, 246, 0.3)",
+                    backgroundColor: "var(--accent)",
+                    color: "#000",
                   }}
                 >
                   Start Over
@@ -257,15 +216,14 @@ export default function Home() {
         </div>
 
         {remainingJobs > 0 && currentIndex < jobs.length && (
-          <p className="mt-6 text-sm text-[#71717A] font-medium">
-            {remainingJobs} {remainingJobs === 1 ? "offer" : "offers"} available
+          <p className="mt-4 text-xs font-medium" style={{ color: "var(--text-dim)" }}>
+            {remainingJobs} {remainingJobs === 1 ? "offer" : "offers"} left
           </p>
         )}
       </main>
 
       <GlassNavbar activeTab="feed" />
 
-      {/* Job Detail Modal */}
       {currentJob && (
         <JobDetailModal
           job={currentJob}
