@@ -63,13 +63,12 @@ export function SwipeableCardFeed<T>({
       setDirection(dir);
       setIsAnimating(true);
 
-      // Call the parent's swipe callback — this updates the store
-      // (which will increment currentIndex via Zustand's synchronous set)
-      onSwipe(currentItem, dir);
-
-      // Wait for exit animation to complete, then reset state for the next card.
-      // The 200ms matches the exit animation duration (0.18s) plus a small buffer.
+      // Delay the store update until AFTER the exit animation completes.
+      // This prevents AnimatePresence from swapping the key prematurely,
+      // which caused the card to visually fly in the wrong direction.
+      const item = currentItem;
       setTimeout(() => {
+        onSwipe(item, dir);
         setSwipeProgress(0);
         setIsAnimating(false);
       }, 200);
