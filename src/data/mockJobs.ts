@@ -22,7 +22,8 @@ export const mockJobs: Job[] = [
     jobType: "full-time",
     benefits: ["Health insurance", "401k matching", "Stock options", "Remote work stipend"],
     companyDescription: "Spotify is the world's most popular audio streaming subscription service, with over 500 million users. We're on a mission to unlock the potential of human creativity by giving creators the tools they need to succeed.",
-    companySize: "5,000+"
+    companySize: "5,000+",
+    companyUserId: "comp-1"
   },
   {
     id: 2,
@@ -44,7 +45,8 @@ export const mockJobs: Job[] = [
     jobType: "full-time",
     benefits: ["Health insurance", "Equity", "Flexible hours", "Learning budget"],
     companyDescription: "Vercel is the platform for frontend developers, providing the speed and reliability needed to build world-class applications. Creators of Next.js.",
-    companySize: "1,000+"
+    companySize: "1,000+",
+    companyUserId: "comp-2"
   },
   {
     id: 3,
@@ -66,7 +68,8 @@ export const mockJobs: Job[] = [
     jobType: "full-time",
     benefits: ["Health insurance", "401k", "Stock options", "Commuter benefits"],
     companyDescription: "Stripe builds economic infrastructure for the internet, enabling businesses of all sizes to accept payments and manage their businesses online.",
-    companySize: "8,000+"
+    companySize: "8,000+",
+    companyUserId: "comp-3"
   },
   {
     id: 4,
@@ -88,7 +91,8 @@ export const mockJobs: Job[] = [
     jobType: "full-time",
     benefits: ["Health insurance", "Equity", "Home office stipend"],
     companyDescription: "Figma is a collaborative interface design tool that's taken the design world by storm. Used by millions of designers and developers worldwide.",
-    companySize: "1,500+"
+    companySize: "1,500+",
+    companyUserId: "comp-4"
   },
   {
     id: 5,
@@ -110,7 +114,8 @@ export const mockJobs: Job[] = [
     jobType: "full-time",
     benefits: ["Health insurance", "Unlimited PTO", "Stock options", "Wellness stipend"],
     companyDescription: "Netflix is the world's leading streaming entertainment service with over 230 million paid memberships globally.",
-    companySize: "13,000+"
+    companySize: "13,000+",
+    companyUserId: "comp-5"
   },
   {
     id: 6,
@@ -132,7 +137,8 @@ export const mockJobs: Job[] = [
     jobType: "full-time",
     benefits: ["Health insurance", "401k", "Remote work budget", "Conference attendance"],
     companyDescription: "GitLab is a complete DevOps platform that enables professionals to perform all tasks from planning to monitoring in a single application.",
-    companySize: "2,000+"
+    companySize: "2,000+",
+    companyUserId: "comp-6"
   },
   {
     id: 7,
@@ -154,7 +160,8 @@ export const mockJobs: Job[] = [
     jobType: "full-time",
     benefits: ["Health insurance", "401k", "Gaming perks", "Free Nitro"],
     companyDescription: "Discord is the easiest way to communicate over voice, video, and text with friends, communities, and game developers. Over 150 million active users.",
-    companySize: "1,200+"
+    companySize: "1,200+",
+    companyUserId: "comp-7"
   },
   {
     id: 8,
@@ -176,6 +183,7 @@ export const mockJobs: Job[] = [
     jobType: "full-time",
     benefits: ["Health insurance", "Travel credits", "Equity", "Learning budget"],
     companyDescription: "Airbnb is a community-driven hospitality company that connects travelers with unique accommodations and experiences around the world. Over 7 million listings worldwide.",
-    companySize: "6,000+"
+    companySize: "6,000+",
+    companyUserId: "comp-8"
   }
 ];

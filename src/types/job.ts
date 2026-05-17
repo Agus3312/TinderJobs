@@ -17,4 +17,6 @@ export interface Job {
   benefits?: string[];
   companyDescription?: string;
   companySize?: string;
+  // Dual-marketplace: links job to a company profile
+  companyUserId?: string;
 }

@@ -7,9 +7,10 @@ interface ActionButtonsProps {
   onSave: () => void;
   onApply: () => void;
   isDisabled?: boolean;
+  labels?: { reject?: string; save?: string; apply?: string };
 }
 
-export function ActionButtons({ onReject, onSave, onApply, isDisabled = false }: ActionButtonsProps) {
+export function ActionButtons({ onReject, onSave, onApply, isDisabled = false, labels }: ActionButtonsProps) {
   return (
     <div className="flex items-center justify-center gap-2.5">
       {/* Reject */}
@@ -24,7 +25,7 @@ export function ActionButtons({ onReject, onSave, onApply, isDisabled = false }:
         }}
       >
         <X className="w-3.5 h-3.5" />
-        <span>Pass</span>
+        <span>{labels?.reject ?? "Pass"}</span>
       </button>
 
       {/* Save */}
@@ -39,7 +40,7 @@ export function ActionButtons({ onReject, onSave, onApply, isDisabled = false }:
         }}
       >
         <Bookmark className="w-3.5 h-3.5" />
-        <span>Save</span>
+        <span>{labels?.save ?? "Save"}</span>
       </button>
 
       {/* Apply — accent color, stands out */}
@@ -53,7 +54,7 @@ export function ActionButtons({ onReject, onSave, onApply, isDisabled = false }:
         }}
       >
         <ArrowRight className="w-3.5 h-3.5" />
-        <span>Apply</span>
+        <span>{labels?.apply ?? "Apply"}</span>
       </button>
     </div>
   );

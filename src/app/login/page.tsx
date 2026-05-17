@@ -3,20 +3,23 @@
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useAppStore } from "@/hooks/useStore";
+import { RoleSelector } from "@/components/RoleSelector";
 
-export default function Home() {
+export default function LoginPage() {
   const router = useRouter();
   const userId = useAppStore((s) => s.userId);
   const activeRole = useAppStore((s) => s.activeRole);
 
   useEffect(() => {
-    if (!userId) {
-      router.replace("/login");
-    } else {
+    if (userId) {
       router.replace(`/${activeRole}/swipe`);
     }
   }, [userId, activeRole, router]);
 
-  // Show nothing while redirecting — the page is just a router guard
-  return null;
+  // Don't flash the selector if already authenticated (redirecting)
+  if (userId) {
+    return null;
+  }
+
+  return <RoleSelector />;
 }
