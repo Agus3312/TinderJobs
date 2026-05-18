@@ -7,6 +7,7 @@ import { SwipeableCardFeed } from "@/components/SwipeableCardFeed";
 import { CandidateCard } from "@/components/CandidateCard";
 import { CandidateDetailModal } from "@/components/CandidateDetailModal";
 import { MatchOverlay } from "@/components/MatchOverlay";
+import { ProfileGuard } from "@/components/ProfileGuard";
 import type { CandidateProfile } from "@/types/candidate";
 import type { Match } from "@/types/match";
 
@@ -79,7 +80,7 @@ export default function CompanySwipePage() {
   );
 
   return (
-    <>
+    <ProfileGuard role="company">
       <SwipeableCardFeed<CandidateProfile>
         items={mockCandidates}
         currentIndex={companySwipeIndex}
@@ -90,12 +91,13 @@ export default function CompanySwipePage() {
         likedCount={companyLikedCandidates.length}
         passedCount={companyPassedCandidates.length}
         remainingLabel="candidates left"
+        role="company"
       />
 
       <MatchOverlay
         match={matchToShow}
         onDismiss={() => setMatchToShow(null)}
       />
-    </>
+    </ProfileGuard>
   );
 }

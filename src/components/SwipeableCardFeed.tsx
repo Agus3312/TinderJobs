@@ -30,6 +30,8 @@ interface SwipeableCardFeedProps<T> {
   passedCount: number;
   /** Label for remaining items counter, e.g. "offers left" or "candidates left" */
   remainingLabel: string;
+  /** Current role — used for "All done" navigation links */
+  role: "candidate" | "company";
 }
 
 // ── Component ──────────────────────────────────────────────────────────────
@@ -44,6 +46,7 @@ export function SwipeableCardFeed<T>({
   likedCount,
   passedCount,
   remainingLabel,
+  role,
 }: SwipeableCardFeedProps<T>) {
   const [isAnimating, setIsAnimating] = useState(false);
   const [swipeProgress, setSwipeProgress] = useState(0);
@@ -207,15 +210,15 @@ export function SwipeableCardFeed<T>({
                 All done
               </h2>
               <p
-                className="text-sm mb-6 max-w-[280px]"
+                className="text-sm mb-4 max-w-[280px]"
                 style={{ color: "var(--text-secondary)" }}
               >
-                You&apos;ve seen all available items. Come back later for new
-                opportunities.
+                You&apos;ve seen all available {role === "candidate" ? "offers" : "candidates"}.
+                Check your matches or start over.
               </p>
 
               {/* Liked / Passed counts */}
-              <div className="flex items-center gap-6 mb-6">
+              <div className="flex items-center gap-6 mb-5">
                 <div className="flex flex-col items-center">
                   <span
                     className="text-xl font-bold tabular-nums"
@@ -230,7 +233,7 @@ export function SwipeableCardFeed<T>({
                     className="text-[10px] uppercase tracking-widest"
                     style={{ color: "var(--text-dim)" }}
                   >
-                    saved
+                    liked
                   </span>
                 </div>
                 <div
@@ -259,13 +262,35 @@ export function SwipeableCardFeed<T>({
                 </div>
               </div>
 
+              {/* Navigation links */}
+              <div className="flex flex-col gap-2 w-full max-w-[240px] mb-4">
+                <a
+                  href={`/${role}/matches`}
+                  className="block w-full px-4 py-2.5 rounded-lg text-sm font-semibold text-center transition-colors duration-150"
+                  style={{
+                    backgroundColor: "var(--accent)",
+                    color: "#000",
+                  }}
+                >
+                  View Matches
+                </a>
+                <a
+                  href={`/${role}/saved`}
+                  className="block w-full px-4 py-2.5 rounded-lg text-sm font-semibold text-center transition-colors duration-150"
+                  style={{
+                    backgroundColor: "var(--bg-elevated)",
+                    border: "1px solid var(--border)",
+                    color: "var(--text-primary)",
+                  }}
+                >
+                  Saved {role === "candidate" ? "Jobs" : "Candidates"}
+                </a>
+              </div>
+
               <button
                 onClick={onReset}
-                className="px-6 py-2.5 rounded-lg text-sm font-semibold transition-colors duration-150 active:scale-95"
-                style={{
-                  backgroundColor: "var(--accent)",
-                  color: "#000",
-                }}
+                className="text-xs font-medium"
+                style={{ color: "var(--text-dim)" }}
               >
                 Start Over
               </button>

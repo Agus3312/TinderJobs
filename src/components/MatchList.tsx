@@ -1,7 +1,10 @@
 "use client";
 
+import { useState } from "react";
 import { useAppStore } from "@/hooks/useStore";
 import { MatchCard } from "./MatchCard";
+import { MatchDetail } from "./MatchDetail";
+import type { Match } from "@/types/match";
 import type { Role } from "@/types/user";
 
 interface MatchListProps {
@@ -10,6 +13,7 @@ interface MatchListProps {
 
 export function MatchList({ role }: MatchListProps) {
   const matches = useAppStore((s) => s.getMatchesForRole(role));
+  const [selectedMatch, setSelectedMatch] = useState<Match | null>(null);
 
   // ── Empty state ───────────────────────────────────────────────────────
   if (matches.length === 0) {
@@ -65,13 +69,20 @@ export function MatchList({ role }: MatchListProps) {
             key={match.id}
             match={match}
             role={role}
-            onTap={() => {
-              // MVP: tap does nothing for now
-              console.log("Match tapped:", match.id);
-            }}
+            onTap={() => setSelectedMatch(match)}
           />
         ))}
       </div>
+
+      {/* Match detail bottom sheet */}
+      {selectedMatch && (
+        <MatchDetail
+          match={selectedMatch}
+          role={role}
+          isOpen={!!selectedMatch}
+          onClose={() => setSelectedMatch(null)}
+        />
+      )}
     </div>
   );
 }
