@@ -37,7 +37,7 @@ const candidateTabs: TabConfig[] = [
 
 const companyTabs: TabConfig[] = [
   { id: "browse", icon: Users, label: "Browse", path: "/company/swipe" },
-  { id: "search", icon: Search, label: "Search", path: "/company/search" },
+  { id: "saved", icon: Bookmark, label: "Saved", path: "/company/saved" },
   { id: "matches", icon: Heart, label: "Matches", path: "/company/matches" },
   { id: "profile", icon: Building2, label: "Profile", path: "/company/profile" },
 ];

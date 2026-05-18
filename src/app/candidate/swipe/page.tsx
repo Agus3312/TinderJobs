@@ -16,6 +16,7 @@ export default function CandidateSwipePage() {
   const candidatePassedJobs = useAppStore((s) => s.candidatePassedJobs);
   const candidateSwipeJob = useAppStore((s) => s.candidateSwipeJob);
   const resetCandidateSwipes = useAppStore((s) => s.resetCandidateSwipes);
+  const toggleCandidateSavedJob = useAppStore((s) => s.toggleCandidateSavedJob);
   const matches = useAppStore((s) => s.matches);
 
   // ── Match overlay detection ────────────────────────────────────────────
@@ -25,7 +26,6 @@ export default function CandidateSwipePage() {
 
   useEffect(() => {
     if (matches.length > prevMatchCount.current) {
-      // New match created — show overlay with the most recent match
       const newMatch = matches[matches.length - 1];
       setMatchToShow(newMatch);
     }
@@ -50,12 +50,12 @@ export default function CandidateSwipePage() {
       <JobCardDisplay
         job={job}
         onReject={() => handleSwipe(job, "left")}
-        onSave={() => {}}
+        onSave={() => toggleCandidateSavedJob(job.id)}
         onApply={() => handleSwipe(job, "right")}
         onTapDetail={() => {}}
       />
     ),
-    [handleSwipe]
+    [handleSwipe, toggleCandidateSavedJob]
   );
 
   const renderDetail = useCallback(

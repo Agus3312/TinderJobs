@@ -55,6 +55,8 @@ export interface AppStore {
   candidateSwipeIndex: number;
   candidateSwipeJob: (jobId: number, direction: "left" | "right") => void;
   resetCandidateSwipes: () => void;
+  candidateSavedJobs: number[];
+  toggleCandidateSavedJob: (jobId: number) => void;
 
   // Company Swiping (candidates)
   companyLikedCandidates: string[];
@@ -62,6 +64,8 @@ export interface AppStore {
   companySwipeIndex: number;
   companySwipeCandidate: (candidateId: string, direction: "left" | "right") => void;
   resetCompanySwipes: () => void;
+  companySavedCandidates: string[];
+  toggleCompanySavedCandidate: (candidateId: string) => void;
 
   // Matches
   matches: Match[];
@@ -86,12 +90,14 @@ const initialCandidateSwiping = {
   candidateLikedJobs: [] as number[],
   candidatePassedJobs: [] as number[],
   candidateSwipeIndex: 0,
+  candidateSavedJobs: [] as number[],
 };
 
 const initialCompanySwiping = {
   companyLikedCandidates: [] as string[],
   companyPassedCandidates: [] as string[],
   companySwipeIndex: 0,
+  companySavedCandidates: [] as string[],
 };
 
 const initialMatches: Match[] = [];
@@ -128,9 +134,11 @@ export const useAppStore = create<AppStore>()(
           candidateLikedJobs: [],
           candidatePassedJobs: [],
           candidateSwipeIndex: 0,
+          candidateSavedJobs: [],
           companyLikedCandidates: [],
           companyPassedCandidates: [],
           companySwipeIndex: 0,
+          companySavedCandidates: [],
           matches: [],
         });
       },
@@ -186,6 +194,15 @@ export const useAppStore = create<AppStore>()(
         });
       },
 
+      toggleCandidateSavedJob: (jobId) => {
+        const state = get();
+        if (state.candidateSavedJobs.includes(jobId)) {
+          set({ candidateSavedJobs: state.candidateSavedJobs.filter((id) => id !== jobId) });
+        } else {
+          set({ candidateSavedJobs: [...state.candidateSavedJobs, jobId] });
+        }
+      },
+
       // ── Company Swiping ──
       ...initialCompanySwiping,
 
@@ -217,6 +234,15 @@ export const useAppStore = create<AppStore>()(
           companyPassedCandidates: [],
           companySwipeIndex: 0,
         });
+      },
+
+      toggleCompanySavedCandidate: (candidateId) => {
+        const state = get();
+        if (state.companySavedCandidates.includes(candidateId)) {
+          set({ companySavedCandidates: state.companySavedCandidates.filter((id) => id !== candidateId) });
+        } else {
+          set({ companySavedCandidates: [...state.companySavedCandidates, candidateId] });
+        }
       },
 
       // ── Matches ──

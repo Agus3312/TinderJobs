@@ -16,6 +16,7 @@ export default function CompanySwipePage() {
   const companyPassedCandidates = useAppStore((s) => s.companyPassedCandidates);
   const companySwipeCandidate = useAppStore((s) => s.companySwipeCandidate);
   const resetCompanySwipes = useAppStore((s) => s.resetCompanySwipes);
+  const toggleCompanySavedCandidate = useAppStore((s) => s.toggleCompanySavedCandidate);
   const matches = useAppStore((s) => s.matches);
 
   // ── Match overlay detection ────────────────────────────────────────────
@@ -50,7 +51,7 @@ export default function CompanySwipePage() {
       <CandidateCard
         candidate={candidate}
         onReject={() => handleSwipe(candidate, "left")}
-        onSave={() => {}}
+        onSave={() => toggleCompanySavedCandidate(candidate.id)}
         onConnect={() => handleSwipe(candidate, "right")}
         onTapDetail={() => {}}
       />
