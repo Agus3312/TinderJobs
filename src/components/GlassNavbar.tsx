@@ -72,7 +72,7 @@ export function GlassNavbar({
   };
 
   return (
-    <div className="fixed bottom-0 left-0 right-0 z-50">
+    <div className="fixed bottom-0 left-0 right-0 z-30">
       <nav
         className="max-w-md mx-auto"
         style={{

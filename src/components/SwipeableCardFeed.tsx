@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 
 // ── Types ──────────────────────────────────────────────────────────────────
@@ -55,6 +55,10 @@ export function SwipeableCardFeed<T>({
   const [swipeProgress, setSwipeProgress] = useState(0);
   const [direction, setDirection] = useState<"left" | "right">("right");
   const [showDetail, setShowDetail] = useState(false);
+
+  // Track whether a drag just happened, so we can ignore the
+  // click event that browsers fire after a drag gesture ends.
+  const justDraggedRef = useRef(false);
 
   const remaining = items.length - currentIndex;
   const currentItem = currentIndex < items.length ? items[currentIndex] : null;
@@ -160,16 +164,23 @@ export function SwipeableCardFeed<T>({
               drag={isAnimating ? false : "x"}
               dragConstraints={{ left: 0, right: 0 }}
               dragElastic={0.7}
+              onDragStart={() => {
+                justDraggedRef.current = true;
+              }}
               onDrag={(_, info) => {
                 setSwipeProgress(
                   Math.max(-1, Math.min(1, info.offset.x / 200)),
                 );
               }}
               onDragEnd={handleDragEnd}
-              // Tap to open detail — single click on card body
+              // Tap to open detail — but NOT after a drag or on buttons
               onClick={(e) => {
-                // Only trigger if the click target is the card itself,
-                // not a child button. We check via the data attribute.
+                // Skip if we just finished dragging (click fires after drag)
+                if (justDraggedRef.current) {
+                  justDraggedRef.current = false;
+                  return;
+                }
+                // Skip if a button was clicked (they have data-action)
                 const target = e.target as HTMLElement;
                 if (target.closest("[data-action]")) return;
                 handleCardTap();

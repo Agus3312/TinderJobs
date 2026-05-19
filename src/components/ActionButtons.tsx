@@ -12,7 +12,7 @@ interface ActionButtonsProps {
 
 export function ActionButtons({ onReject, onSave, onApply, isDisabled = false, labels }: ActionButtonsProps) {
   return (
-    <div className="flex items-center justify-center gap-2.5">
+    <div className="flex items-center justify-center gap-2.5" onClick={(e) => e.stopPropagation()}>
       {/* Reject */}
       <button
         onClick={onReject}

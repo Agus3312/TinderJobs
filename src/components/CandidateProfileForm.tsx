@@ -129,8 +129,11 @@ export function CandidateProfileForm() {
       .filter(Boolean);
     if (skills.length === 0) errs.skills = "At least one skill is required";
     if (!location.trim()) errs.location = "Location is required";
+    if (salaryExpectation.trim() && !/^[0-9]+k?$/i.test(salaryExpectation.trim())) {
+      errs.salaryExpectation = "Enter a number (e.g. 90000 or 90k)";
+    }
     return errs;
-  }, [fullName, headline, skillsInput, location]);
+  }, [fullName, headline, skillsInput, location, salaryExpectation]);
 
   const handleSubmit = useCallback(
     (e: FormEvent) => {
@@ -364,13 +367,24 @@ export function CandidateProfileForm() {
           id="cf-salary"
           data-field="salaryExpectation"
           type="text"
-          placeholder="e.g. $90k"
+          inputMode="numeric"
+          pattern="[0-9kK]*"
+          placeholder="e.g. 90000"
           value={salaryExpectation}
-          onChange={(e) => setSalaryExpectation(e.target.value)}
+          onChange={(e) => {
+            // Only allow digits and 'k'
+            const val = e.target.value.replace(/[^0-9kK]/g, "");
+            setSalaryExpectation(val);
+            if (errors.salaryExpectation) setErrors((prev) => ({ ...prev, salaryExpectation: "" }));
+          }}
           onFocus={focusBorder}
           onBlur={blurBorder}
-          style={inputBaseStyle}
+          style={{
+            ...inputBaseStyle,
+            borderColor: errors.salaryExpectation ? "var(--danger)" : undefined,
+          }}
         />
+        {errors.salaryExpectation && <span style={errorStyle}>{errors.salaryExpectation}</span>}
       </fieldset>
 
       {/* Submit */}
