@@ -17,6 +17,7 @@ export function ActionButtons({ onReject, onSave, onApply, isDisabled = false, l
       <button
         onClick={onReject}
         disabled={isDisabled}
+        data-action="reject"
         className="flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-medium transition-colors duration-150 active:scale-95"
         style={{
           backgroundColor: "var(--danger-dim)",
@@ -32,6 +33,7 @@ export function ActionButtons({ onReject, onSave, onApply, isDisabled = false, l
       <button
         onClick={onSave}
         disabled={isDisabled}
+        data-action="save"
         className="flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-medium transition-colors duration-150 active:scale-95"
         style={{
           backgroundColor: "var(--bg-elevated)",
@@ -47,6 +49,7 @@ export function ActionButtons({ onReject, onSave, onApply, isDisabled = false, l
       <button
         onClick={onApply}
         disabled={isDisabled}
+        data-action="apply"
         className="flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-semibold transition-all duration-150 active:scale-95"
         style={{
           backgroundColor: "var(--accent)",

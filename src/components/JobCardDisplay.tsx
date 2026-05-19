@@ -5,7 +5,7 @@ import { JobCardHeader } from "./JobCardHeader";
 import { TechPill } from "./TechPill";
 import { MatchReason } from "./MatchReason";
 import { ActionButtons } from "./ActionButtons";
-import { MapPin, DollarSign, ChevronUp } from "lucide-react";
+import { MapPin, DollarSign } from "lucide-react";
 
 interface JobCardDisplayProps {
   job: Job;
@@ -96,17 +96,10 @@ export function JobCardDisplay({ job, onReject, onSave, onApply, onTapDetail }: 
         <MatchReason reasons={job.matchReasons} maxVisible={2} />
       )}
 
-      {/* Tap for detail */}
-      {onTapDetail && (
-        <button
-          onClick={(e) => { e.stopPropagation(); onTapDetail(); }}
-          className="flex items-center justify-center gap-1 w-full py-1.5 text-xs transition-colors duration-150"
-          style={{ color: "var(--text-dim)" }}
-        >
-          <ChevronUp className="w-3.5 h-3.5" />
-          <span>details</span>
-        </button>
-      )}
+      {/* Tap hint */}
+      <p className="text-[10px] text-center mt-1" style={{ color: "var(--text-dim)" }}>
+        Tap for details
+      </p>
 
       {/* Actions */}
       <div className="mt-auto pt-2">

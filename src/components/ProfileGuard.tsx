@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import { useAppStore } from "@/hooks/useStore";
 import { AlertTriangle } from "lucide-react";
 import type { Role } from "@/types/user";
@@ -16,6 +17,7 @@ interface ProfileGuardProps {
  * The warning is dismissible — it won't block navigation, just nudge.
  */
 export function ProfileGuard({ role, children }: ProfileGuardProps) {
+  const router = useRouter();
   const candidateProfile = useAppStore((s) => s.candidateProfile);
   const companyProfile = useAppStore((s) => s.companyProfile);
   const [dismissed, setDismissed] = useState(false);
@@ -62,13 +64,13 @@ export function ProfileGuard({ role, children }: ProfileGuardProps) {
               : "Candidates want to know about your company. Add your company details to attract the right talent."}
           </p>
           <div className="flex items-center gap-3 mt-2">
-            <a
-              href={profilePath}
+            <button
+              onClick={() => router.push(profilePath)}
               className="text-xs font-semibold underline underline-offset-2"
               style={{ color: "var(--accent)" }}
             >
               {role === "candidate" ? "Edit candidate profile" : "Edit company profile"}
-            </a>
+            </button>
             <button
               onClick={() => setDismissed(true)}
               className="text-xs"

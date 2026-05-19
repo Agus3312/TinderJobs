@@ -32,6 +32,8 @@ interface SwipeableCardFeedProps<T> {
   remainingLabel: string;
   /** Current role — used for "All done" navigation links */
   role: "candidate" | "company";
+  /** Called when user taps the card body (not buttons) to view details */
+  onTapCard?: () => void;
 }
 
 // ── Component ──────────────────────────────────────────────────────────────
@@ -47,6 +49,7 @@ export function SwipeableCardFeed<T>({
   passedCount,
   remainingLabel,
   role,
+  onTapCard,
 }: SwipeableCardFeedProps<T>) {
   const [isAnimating, setIsAnimating] = useState(false);
   const [swipeProgress, setSwipeProgress] = useState(0);
@@ -64,6 +67,7 @@ export function SwipeableCardFeed<T>({
       if (!currentItem) return;
 
       setDirection(dir);
+      setSwipeProgress(0); // Clear any leftover drag direction
       setIsAnimating(true);
 
       // Delay the store update until AFTER the exit animation completes.
@@ -72,7 +76,6 @@ export function SwipeableCardFeed<T>({
       const item = currentItem;
       setTimeout(() => {
         onSwipe(item, dir);
-        setSwipeProgress(0);
         setIsAnimating(false);
       }, 200);
     },
@@ -106,6 +109,17 @@ export function SwipeableCardFeed<T>({
     setShowDetail(false);
     handleSwipe("left");
   }, [handleSwipe]);
+
+  // ── Tap card to open detail ────────────────────────────────────────
+
+  const handleCardTap = useCallback(() => {
+    if (isAnimating) return;
+    if (onTapCard) {
+      onTapCard();
+    } else if (renderDetail) {
+      setShowDetail(true);
+    }
+  }, [isAnimating, onTapCard, renderDetail]);
 
   // ── Overlay intensity ─────────────────────────────────────────────────
 
@@ -152,6 +166,14 @@ export function SwipeableCardFeed<T>({
                 );
               }}
               onDragEnd={handleDragEnd}
+              // Tap to open detail — single click on card body
+              onClick={(e) => {
+                // Only trigger if the click target is the card itself,
+                // not a child button. We check via the data attribute.
+                const target = e.target as HTMLElement;
+                if (target.closest("[data-action]")) return;
+                handleCardTap();
+              }}
               initial={{ opacity: 0, y: 8 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{
@@ -180,6 +202,36 @@ export function SwipeableCardFeed<T>({
                     background: `linear-gradient(to left, rgba(16,185,129,${likeOpacity}), transparent 50%)`,
                   }}
                 />
+              )}
+
+              {/* NOPE/LIKE stamp labels for visual feedback */}
+              {swipeProgress < -0.4 && (
+                <div className="absolute top-4 left-4 z-30 pointer-events-none">
+                  <span
+                    className="text-2xl font-black tracking-wider uppercase -rotate-12 inline-block"
+                    style={{
+                      color: "var(--danger)",
+                      opacity: Math.min(1, (Math.abs(swipeProgress) - 0.4) * 3),
+                      fontFamily: "var(--font-mono)",
+                    }}
+                  >
+                    NOPE
+                  </span>
+                </div>
+              )}
+              {swipeProgress > 0.4 && (
+                <div className="absolute top-4 right-4 z-30 pointer-events-none">
+                  <span
+                    className="text-2xl font-black tracking-wider uppercase rotate-12 inline-block"
+                    style={{
+                      color: "var(--accent)",
+                      opacity: Math.min(1, (swipeProgress - 0.4) * 3),
+                      fontFamily: "var(--font-mono)",
+                    }}
+                  >
+                    LIKE
+                  </span>
+                </div>
               )}
 
               {renderCard(currentItem)}

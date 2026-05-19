@@ -3,7 +3,7 @@
 import { CandidateProfile } from "@/types/candidate";
 import { TechPill } from "./TechPill";
 import { ActionButtons } from "./ActionButtons";
-import { MapPin, DollarSign, Briefcase, ChevronUp } from "lucide-react";
+import { MapPin, DollarSign, Briefcase } from "lucide-react";
 
 interface CandidateCardProps {
   candidate: CandidateProfile;
@@ -198,20 +198,10 @@ export function CandidateCard({
         )}
       </div>
 
-      {/* ── Tap for details ── */}
-      {onTapDetail && (
-        <button
-          onClick={(e) => {
-            e.stopPropagation();
-            onTapDetail();
-          }}
-          className="flex items-center justify-center gap-1 w-full py-1.5 text-xs transition-colors duration-150 mt-2"
-          style={{ color: "var(--text-dim)" }}
-        >
-          <ChevronUp className="w-3.5 h-3.5" />
-          <span>details</span>
-        </button>
-      )}
+      {/* Tap hint */}
+      <p className="text-[10px] text-center mt-1" style={{ color: "var(--text-dim)" }}>
+        Tap for details
+      </p>
 
       {/* ── Actions ── */}
       <div className="mt-auto pt-2">

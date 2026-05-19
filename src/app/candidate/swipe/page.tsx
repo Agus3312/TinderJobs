@@ -53,7 +53,6 @@ export default function CandidateSwipePage() {
         onReject={() => handleSwipe(job, "left")}
         onSave={() => toggleCandidateSavedJob(job.id)}
         onApply={() => handleSwipe(job, "right")}
-        onTapDetail={() => {}}
       />
     ),
     [handleSwipe, toggleCandidateSavedJob]

@@ -54,10 +54,9 @@ export default function CompanySwipePage() {
         onReject={() => handleSwipe(candidate, "left")}
         onSave={() => toggleCompanySavedCandidate(candidate.id)}
         onConnect={() => handleSwipe(candidate, "right")}
-        onTapDetail={() => {}}
       />
     ),
-    [handleSwipe],
+    [handleSwipe, toggleCompanySavedCandidate]
   );
 
   const renderDetail = useCallback(
