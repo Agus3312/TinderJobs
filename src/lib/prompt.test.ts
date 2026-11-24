@@ -31,6 +31,11 @@ describe("construirPrompt", () => {
   });
 
   it("incluye horario", () => {
+    expect(p).toContain("lunes a viernes de 09:00 a 19:00");
+    expect(p).toContain("sábados de 09:00 a 13:00");
+    expect(p).toContain("de 2026");
+    expect(p).toContain("derivá con derivar_a_humano");
+    expect(p).toContain("ver_mis_turnos con el nombre");
     expect(p).toMatch(/09:00/);
     expect(p).toMatch(/19:00/);
     expect(p).toMatch(/13:00/);

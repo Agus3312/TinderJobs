@@ -32,7 +32,7 @@ export const clinica: ClinicaConfig = {
       nombre: "Consulta y evaluación",
       precio: 25000,
       duracionMin: 30,
-      descripcion: "Primera visita: revisión completa, diagnóstico y plan de tratamiento.",
+      descripcion: "Primera visita: revisión completa, evaluación y plan de tratamiento.",
     },
     {
       id: "limpieza",
