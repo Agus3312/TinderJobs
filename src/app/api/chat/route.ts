@@ -28,13 +28,25 @@ export async function POST(req: Request) {
   const fecha = typeof ahora === "string" ? new Date(ahora) : null;
   if (!fecha || Number.isNaN(fecha.getTime())) return json({ error: "ahora_invalido" }, 400);
 
+  let modelMessages;
+  try {
+    modelMessages = await convertToModelMessages(messages as UIMessage[], { tools });
+  } catch {
+    return json({ error: "messages_invalidos" }, 400);
+  }
+
   const result = streamText({
     model: MODELO,
     system: construirPrompt(clinica, fecha),
-    messages: await convertToModelMessages(messages as UIMessage[], { tools }),
+    messages: modelMessages,
     tools,
     stopWhen: isStepCount(5),
   });
 
-  return result.toUIMessageStreamResponse();
+  return result.toUIMessageStreamResponse({
+    onError: (e) => {
+      console.error("[chat]", e);
+      return "ia_error";
+    },
+  });
 }
