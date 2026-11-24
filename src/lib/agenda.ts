@@ -376,7 +376,7 @@ export function ahoraInicialDemo(real: Date, cfg: ClinicaConfig): Date {
   return new Date(Math.floor(ms / 3600_000) * 3600_000); // sin días de atención: no debería pasar
 }
 
-/** "Simular día siguiente": el próximo día de atención (posterior al de `ahora`) a la hora de apertura. */
+/** El próximo día de atención (posterior al de `ahora`) a la hora de apertura. */
 export function siguienteApertura(ahora: Date, cfg: ClinicaConfig): Date {
   const hoy = inicioDeDia(ahora.getTime());
   for (let i = 1; i <= 7; i++) {
@@ -387,14 +387,17 @@ export function siguienteApertura(ahora: Date, cfg: ClinicaConfig): Date {
   return new Date(hoy + DIA + hhmm(cfg.horario.desde) * MIN); // sin días de atención: no debería pasar
 }
 
+/** Hasta cuántos días adelante "Adelantar el reloj" busca un recordatorio pendiente. */
+const DIAS_SALTO_MAX = 7;
+
 /**
- * "Adelantar el reloj": al próximo recordatorio pendiente de un turno del bot, si sale antes de
- * que termine el próximo día de atención; si no, a la apertura del próximo día de atención.
- * Así cada salto muestra un recordatorio (24 h y después 2 h) con su hora real de envío.
+ * "Adelantar el reloj": al próximo recordatorio pendiente de un turno del bot (si sale dentro de
+ * la próxima semana); si no hay, a la apertura del próximo día de atención. Así cada salto
+ * muestra un recordatorio (24 h y después 2 h) con su hora real de envío.
  */
 export function proximoSalto(turnos: Turno[], cfg: ClinicaConfig, ahora: Date): Date {
   const apertura = siguienteApertura(ahora, cfg);
-  const limite = inicioDeDia(apertura.getTime()) + DIA;
+  const limite = ahora.getTime() + DIAS_SALTO_MAX * DIA;
   const delBot = turnos.filter(
     (t) => t.origen === "bot" && t.estado !== "cancelado" && new Date(t.inicio).getTime() > ahora.getTime(),
   );

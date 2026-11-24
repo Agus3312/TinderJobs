@@ -3,7 +3,7 @@ import type { Turno } from "./agenda";
 // Argentina: UTC-3 fijo. Todo se calcula en esa zona, sin depender de la TZ del servidor.
 const OFFSET_MS = -3 * 3600_000;
 const DIA = 24 * 3600_000;
-/** Días de atención (lun-sáb) que se llenan hacia adelante, para que "Simular día siguiente" no deje la agenda vacía. */
+/** Días de atención (lun-sáb) que se llenan hacia adelante, para que "Adelantar el reloj" no deje la agenda vacía. */
 const DIAS_A_LLENAR = 10;
 
 // Pacientes ficticios, en el orden en que se reparten en los horarios.

@@ -13,14 +13,14 @@ type Props = {
   /** Visible en pantalla (en móvil el panel vive en la pestaña "Clínica"). */
   activo?: boolean;
   turnos: Turno[];
-  /** `ahora` fijado de la demo (cambia con "Simular día siguiente"). */
+  /** `ahora` fijado de la demo (cambia con "Adelantar el reloj"). */
   ahora: Date;
   /** Reloj de la demo: `ahora` + el tiempo real transcurrido. */
   reloj: () => Date;
   derivaciones: string[];
   /** Recordatorios de turnos del bot que se mandaron: clave -> hora de envío. */
   enviados: Record<string, string>;
-  /** Avanza al próximo día de atención; devuelve cuántos recordatorios se enviaron. */
+  /** Adelanta el reloj al próximo recordatorio o día de atención; devuelve cuántos recordatorios se enviaron. */
   onSimularDia: () => number;
 };
 
@@ -48,10 +48,13 @@ export default function PanelClinica({ className = "", activo = true, turnos, ah
 
   const simular = () => {
     const n = onSimularDia();
+    const ahora = reloj();
+    const cuando = `${capitalizar(diaLargo(ahora))}, ${hora(ahora)}`;
     const texto =
       n === 0
-        ? "Avanzamos al próximo día de atención."
-        : `Se ${n === 1 ? "envió 1 recordatorio" : `enviaron ${n} recordatorios`} por WhatsApp 📲`;
+        ? `Ahora es ${cuando}. No había recordatorios para enviar.`
+        : `Ahora es ${cuando}. Se ${n === 1 ? "envió 1 recordatorio" : `enviaron ${n} recordatorios`} por WhatsApp 📲`;
+    setVivo(ahora);
     setToast({ id: Date.now(), texto, alChat: n > 0 });
   };
 
@@ -82,9 +85,10 @@ export default function PanelClinica({ className = "", activo = true, turnos, ah
           <button
             type="button"
             onClick={simular}
+            title="Salta al próximo recordatorio automático o al próximo día de atención"
             className="inline-flex shrink-0 items-center gap-2 rounded-full bg-(--primario-oscuro) px-4 py-2 text-[13.5px] font-semibold text-white shadow-sm transition hover:bg-(--primario-texto) focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-(--primario) active:scale-[.97]"
           >
-            Simular día siguiente <span aria-hidden>⏭</span>
+            Adelantar el reloj <span aria-hidden>⏭</span>
           </button>
         </div>
         <div aria-live="polite" className="empty:hidden">

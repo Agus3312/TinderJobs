@@ -619,9 +619,14 @@ describe("proximoSalto", () => {
     expect(proximoSalto([t], clinica, art("2026-11-24T16:00:00"))).toEqual(art("2026-11-25T14:00:00"));
   });
 
-  it("un recordatorio lejano (después del próximo día de atención) no se adelanta", () => {
-    const t = bot({ inicio: iso("2026-12-01T16:00:00-03:00") });
+  it("un recordatorio a más de una semana no se adelanta", () => {
+    const t = bot({ inicio: iso("2026-12-03T16:00:00-03:00") }); // 24 h: miércoles 2/12
     expect(proximoSalto([t], clinica, art("2026-11-24T10:00:00"))).toEqual(art("2026-11-25T09:00:00"));
+  });
+
+  it("viernes con turno el lunes: salta al domingo, cuando sale el de 24 h (no al sábado vacío)", () => {
+    const t = bot({ inicio: iso("2026-11-30T16:00:00-03:00") });
+    expect(proximoSalto([t], clinica, art("2026-11-27T10:00:00"))).toEqual(art("2026-11-29T16:00:00"));
   });
 
   it("ignora turnos cancelados", () => {

@@ -5,7 +5,7 @@ Demo de ventas de una **recepcionista virtual con IA** que atiende el WhatsApp d
 La pantalla tiene dos partes:
 
 - **Chat** (estilo WhatsApp): el paciente pregunta precios, horarios y obras sociales. Pide, cambia o cancela turnos y recibe la confirmación al instante.
-- **Panel de la clínica**: lo que ve la recepción. Agenda de los próximos días, recordatorios automáticos (24 h y 2 h antes), derivaciones a una persona y métricas de ejemplo. El botón **"Simular día siguiente"** adelanta el reloj para mostrar cómo salen los recordatorios.
+- **Panel de la clínica**: lo que ve la recepción. Agenda de los próximos días, recordatorios automáticos (24 h y 2 h antes), derivaciones a una persona y métricas de ejemplo. El botón **"Adelantar el reloj ⏭"** salta al próximo recordatorio automático (o, si no hay ninguno en la próxima semana, al próximo día de atención) para mostrar cómo salen.
 
 En la computadora los dos paneles se ven lado a lado. En el celular hay dos pestañas abajo, **Chat** y **Clínica**. Cuando el asistente agenda un turno, la pestaña "Clínica" muestra un contador de novedades.
 
@@ -87,9 +87,13 @@ El link es público: cualquiera que lo tenga puede chatear, y cada mensaje consu
 Ideal desde el celular del dueño de la clínica, o en la notebook con los dos paneles a la vista.
 
 1. **Preguntar un precio.** Tocá la sugerencia *"¿Cuánto sale un blanqueamiento?"*. La IA responde con el precio y la duración, y ofrece un turno.
-2. **Pedir un turno.** Escribí algo como *"Quiero un turno para limpieza el jueves a la tarde, soy Ana López"*. La IA consulta la agenda, propone horarios y reserva.
-3. **Ver la agenda.** Abrí el panel (en el celular, la pestaña **Clínica**, que va a tener un contador). El turno aparece resaltado como ✨ nuevo, con sus recordatorios programados.
-4. **Simular el día siguiente.** En el panel tocá **"Simular día siguiente ⏭"**. Sale el recordatorio de 24 h: volvé al chat y está el mensaje *"Hola Ana 👋 te recordamos tu turno…"*.
-5. **Contestar "SÍ".** Respondé *SÍ* en el chat. La IA confirma la asistencia. Cerrá con las métricas del panel: menos ausentismo y consultas atendidas fuera de horario.
+2. **Pedir un turno.** Escribí *"Quiero un turno de limpieza para pasado mañana a la tarde, soy Ana López"*. La IA consulta la agenda de ese día y ofrece 2 o 3 horarios de la tarde. Elegí uno (por ejemplo *"el de las 16"*) y lo reserva al instante.
+3. **Ver la agenda.** Abrí el panel (en el celular, la pestaña **Clínica**, que va a tener un contador). El turno aparece resaltado como ✨ nuevo, con sus dos recordatorios programados (24 h y 2 h antes).
+4. **Adelantar el reloj.** En el panel tocá **"Adelantar el reloj ⏭"**. El reloj salta a 24 h antes del turno (mañana a esa hora) y sale el recordatorio: el aviso dice *"Ahora es … Se envió 1 recordatorio por WhatsApp 📲"*, y en el chat está el mensaje *"Hola Ana 👋 te recordamos tu turno de Limpieza dental mañana 16:00…"*, con su hora de envío.
+5. **Contestar "SÍ".** Respondé *SÍ* en el chat. La IA confirma la asistencia.
+6. **Otra vez el botón (opcional).** Tocá **"Adelantar el reloj ⏭"** de nuevo: salta a 2 h antes del turno y sale *"te esperamos hoy a las 16:00 (en dos horas)…"* con la dirección. En el panel, los dos recordatorios quedan ✔ enviados.
+7. **Cerrar con los resultados.** Las métricas del panel: menos ausentismo y consultas atendidas fuera de horario.
+
+Si el turno se pide para dentro de menos de 24 h (por ejemplo "mañana" a última hora de la tarde), el recordatorio de 24 h sale apenas se reserva, y el botón muestra directamente el de 2 h. Si no hay recordatorios pendientes, el botón pasa al próximo día de atención a las 09:00. El reloj de la demo también avanza solo: si durante la reunión llega la hora de un recordatorio, aparece en el chat.
 
 Extras para mostrar si hay tiempo: pedir reprogramar el turno, preguntar *"¿Atienden OSDE?"* o escribir una urgencia (*"me duele mucho una muela"*) para ver cómo deriva a una persona.

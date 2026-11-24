@@ -7,7 +7,7 @@ import {
   claveRecordatorio,
   recordatoriosAlAgendar,
   recordatoriosNuevos,
-  siguienteApertura,
+  proximoSalto,
   type Recordatorio,
   type Turno,
 } from "@/lib/agenda";
@@ -85,6 +85,10 @@ function DemoCliente() {
   const pendientesRef = useRef<{ id: string; texto: string }[]>([]);
   // Momento real en que se fijó `ahora`: el reloj de la demo avanza desde ahí.
   const fijadoEnRef = useRef(inicial.fijadoEn);
+  // Hasta qué momento (hora simulada) ya se mandaron los recordatorios que correspondían.
+  const procesadoHastaRef = useRef(inicial.ahora.getTime());
+  // Claves de recordatorios ya mandados (espejo de `enviados`, legible desde callbacks).
+  const enviadosRef = useRef(new Set<string>());
 
   // Móvil: una pestaña a la vez (el chat no se desmonta, sólo se oculta, así no pierde estado).
   const [pestana, setPestana] = useState<Pestana>("chat");
@@ -143,6 +147,7 @@ function DemoCliente() {
 
   const marcarEnviados = useCallback((recs: Recordatorio[], at: (r: Recordatorio) => string) => {
     if (recs.length === 0) return;
+    for (const r of recs) enviadosRef.current.add(claveRecordatorio(r));
     setEnviados((prev) => {
       const sig = { ...prev };
       for (const r of recs) sig[claveRecordatorio(r)] ??= at(r);
@@ -159,18 +164,46 @@ function DemoCliente() {
     pendientesRef.current = [];
   }, [agregarMensajes, reloj]);
 
+  /**
+   * Manda (como burbujas del bot, selladas a su hora de envío) los recordatorios de turnos del
+   * bot que salen entre lo ya procesado y `hasta`. Devuelve cuántos mandó.
+   */
+  const despachar = useCallback(
+    (hasta: Date) => {
+      const desde = new Date(procesadoHastaRef.current);
+      if (hasta.getTime() <= desde.getTime()) return 0;
+      procesadoHastaRef.current = hasta.getTime();
+      const recs = recordatoriosNuevos(turnosRef.current, clinica, desde, hasta).filter(
+        (r) => !enviadosRef.current.has(claveRecordatorio(r)),
+      );
+      if (recs.length === 0) return 0;
+      marcarEnviados(recs, (r) => r.enviarEn);
+      agregarMensajes(recs.map((r) => ({ id: `rec-${claveRecordatorio(r)}`, texto: r.texto, at: r.enviarEn })));
+      // Los recordatorios llegan al chat del paciente: avisamos en la pestaña "Chat".
+      avisarNovedad("chat", recs.length);
+      return recs.length;
+    },
+    [agregarMensajes, avisarNovedad, marcarEnviados],
+  );
+
+  // El reloj de la demo avanza solo: si en plena reunión llega la hora de un recordatorio, sale.
+  useEffect(() => {
+    const id = setInterval(() => despachar(reloj()), 5_000);
+    return () => clearInterval(id);
+  }, [despachar, reloj]);
+
   const onHerramienta = useCallback(
     (nombre: string, input: unknown) => {
       const previos = turnosRef.current;
-      const r = ejecutarHerramienta(nombre, input, {
-        turnos: previos,
-        ahora: ahoraRef.current,
-      });
+      const ahoraVirtual = reloj();
+      const r = ejecutarHerramienta(nombre, input, { turnos: previos, ahora: ahoraVirtual });
       if (r.turnos) {
+        // Primero lo que ya tocaba mandar con la agenda anterior; los avisos vencidos del turno
+        // nuevo no se mandan "atrasados" (salvo el de 24 h, abajo).
+        despachar(ahoraVirtual);
         actualizarTurnos(r.turnos);
         avisarNovedad("clinica");
         // Turno del bot con menos de 24 h de anticipación: el aviso de 24 h sale ya.
-        const ahoraVirtual = reloj();
         const recs = recordatoriosAlAgendar(previos, r.turnos, clinica, ahoraVirtual);
         marcarEnviados(recs, () => ahoraVirtual.toISOString());
         pendientesRef.current.push(...recs.map((x) => ({ id: `rec-${claveRecordatorio(x)}`, texto: x.texto })));
@@ -182,10 +215,11 @@ function DemoCliente() {
       }
       return r.output;
     },
-    [actualizarTurnos, avisarNovedad, marcarEnviados, reloj],
+    [actualizarTurnos, avisarNovedad, despachar, marcarEnviados, reloj],
   );
 
-  const obtenerAhora = useCallback(() => ahoraRef.current, []);
+  // El modelo ve la misma hora que las burbujas del chat (el reloj que avanza).
+  const obtenerAhora = reloj;
 
   /** Avisos automáticos ya "enviados" (sin la bienvenida), para que la IA sepa qué recordó. */
   const obtenerAvisos = useCallback(
@@ -198,24 +232,19 @@ function DemoCliente() {
   );
 
   /**
-   * "Simular día siguiente": salta al próximo día de atención a las 09:00 y manda (como
-   * burbujas del bot) los recordatorios de turnos del bot que se envían en ese intervalo.
+   * "Adelantar el reloj": salta al próximo recordatorio pendiente (si sale antes de que termine
+   * el próximo día de atención) o al próximo día de atención a las 09:00, y manda los
+   * recordatorios de turnos del bot que salen hasta ese momento.
    */
   const simularDia = useCallback(() => {
     publicarPendientes();
-    const antes = reloj();
-    const despues = siguienteApertura(antes, clinica);
-    const recs = recordatoriosNuevos(turnosRef.current, clinica, antes, despues);
-    // Refs primero: el reloj y los callbacks del chat ya ven el nuevo día.
+    const despues = proximoSalto(turnosRef.current, clinica, reloj());
+    // Refs primero: el reloj y los callbacks del chat ya ven la nueva hora.
     ahoraRef.current = despues;
     fijadoEnRef.current = Date.now();
     setAhora(despues);
-    marcarEnviados(recs, (r) => r.enviarEn);
-    agregarMensajes(recs.map((r) => ({ id: `rec-${claveRecordatorio(r)}`, texto: r.texto, at: r.enviarEn })));
-    // Los recordatorios llegan al chat del paciente: avisamos en la pestaña "Chat".
-    avisarNovedad("chat", recs.length);
-    return recs.length;
-  }, [agregarMensajes, avisarNovedad, marcarEnviados, publicarPendientes, reloj]);
+    return despachar(despues);
+  }, [despachar, publicarPendientes, reloj]);
 
   const verChat = escritorio || pestana === "chat";
   const verClinica = escritorio || pestana === "clinica";
