@@ -11,22 +11,37 @@ const MODELO = process.env.AI_MODEL ?? "anthropic/claude-sonnet-5.5";
 const json = (body: unknown, status: number) =>
   Response.json(body, { status });
 
+const MAX_AVISOS = 10;
+const MAX_CHARS_AVISO = 500;
+
+/** `avisos` es opcional; si viene, debe ser un array chico de textos cortos. */
+function avisosValidos(v: unknown): v is string[] | undefined {
+  return (
+    v === undefined ||
+    (Array.isArray(v) &&
+      v.length <= MAX_AVISOS &&
+      v.every((a) => typeof a === "string" && a.length <= MAX_CHARS_AVISO))
+  );
+}
+
 export async function POST(req: Request) {
   if (!process.env.AI_GATEWAY_API_KEY && !process.env.VERCEL_OIDC_TOKEN) {
     return json({ error: "sin_ia" }, 503);
   }
 
-  let body: { messages?: unknown; ahora?: unknown };
+  let body: { messages?: unknown; ahora?: unknown; avisos?: unknown };
   try {
     body = await req.json();
   } catch {
     return json({ error: "body_invalido" }, 400);
   }
 
-  const { messages, ahora } = body;
+  if (!body || typeof body !== "object") return json({ error: "body_invalido" }, 400);
+  const { messages, ahora, avisos } = body;
   if (!Array.isArray(messages)) return json({ error: "messages_requerido" }, 400);
   const fecha = typeof ahora === "string" ? new Date(ahora) : null;
   if (!fecha || Number.isNaN(fecha.getTime())) return json({ error: "ahora_invalido" }, 400);
+  if (!avisosValidos(avisos)) return json({ error: "avisos_invalidos" }, 400);
 
   let modelMessages;
   try {
@@ -37,7 +52,7 @@ export async function POST(req: Request) {
 
   const result = streamText({
     model: MODELO,
-    system: construirPrompt(clinica, fecha),
+    system: construirPrompt(clinica, fecha, avisos),
     messages: modelMessages,
     tools,
     stopWhen: isStepCount(5),

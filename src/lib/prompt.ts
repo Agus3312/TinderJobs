@@ -46,7 +46,19 @@ function horarioEnTexto(h: ClinicaConfig["horario"]): string {
   return t + " (hora de Argentina). Domingos cerrado";
 }
 
-export function construirPrompt(cfg: ClinicaConfig, ahora: Date): string {
+function seccionAvisos(avisos: string[] | undefined): string {
+  const lista = (avisos ?? []).map((a) => a.trim()).filter(Boolean);
+  if (lista.length === 0) return "";
+  const items = lista.map((a) => `- "${a.replace(/\s+/g, " ")}"`).join("\n");
+  return `
+
+# Mensajes automáticos que ya le mandaste al paciente:
+${items}
+- Si la persona responde "SÍ", "confirmo" o algo parecido a uno de estos recordatorios, confirmale el turno con calidez (no hace falta usar ninguna herramienta).
+- Si quiere cambiar el día o la hora, seguí el flujo de reprogramar_turno (ver_mis_turnos, ver_disponibilidad y reprogramar_turno).`;
+}
+
+export function construirPrompt(cfg: ClinicaConfig, ahora: Date, avisos?: string[]): string {
   const tratamientos = cfg.tratamientos
     .map(
       (t) =>
@@ -91,5 +103,5 @@ ${tratamientos}
 - Nunca des diagnósticos ni consejos médicos. Si preguntan por síntomas, dolor o tratamientos específicos para su caso, explicá que lo evalúa el profesional en la consulta y ofrecé un turno.
 - Si hay una urgencia, una queja, un pedido que no podés resolver o la persona pide hablar con alguien, usá la herramienta derivar_a_humano.
 - Solo informá precios y datos que figuran acá; si no sabés algo, no lo inventes: usá la herramienta derivar_a_humano.
-- No hables de temas ajenos a la clínica.`;
+- No hables de temas ajenos a la clínica.${seccionAvisos(avisos)}`;
 }

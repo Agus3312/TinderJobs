@@ -58,3 +58,29 @@ describe("construirPrompt", () => {
       expect(p).toContain(h);
   });
 });
+
+describe("construirPrompt con avisos", () => {
+  const aviso = "Hola Ana 👋 te recordamos tu turno de Limpieza dental mañana 16:30 en *Sonrisa Dental & Estética*. Respondé *SÍ* para confirmar.";
+
+  it("sin avisos no agrega la sección", () => {
+    expect(construirPrompt(clinica, ahora)).not.toContain("Mensajes automáticos");
+    expect(construirPrompt(clinica, ahora, [])).not.toContain("Mensajes automáticos");
+    expect(construirPrompt(clinica, ahora, ["  "])).not.toContain("Mensajes automáticos");
+  });
+
+  it("con avisos los lista y explica cómo responder SÍ o reprogramar", () => {
+    const p = construirPrompt(clinica, ahora, [aviso]);
+    expect(p).toContain("Mensajes automáticos que ya le mandaste al paciente:");
+    expect(p).toContain(aviso);
+    expect(p).toMatch(/SÍ/);
+    expect(p).toMatch(/confirm/i);
+    expect(p).toContain("reprogramar_turno");
+    // la sección va al final, después de las reglas
+    expect(p.indexOf("Mensajes automáticos")).toBeGreaterThan(p.indexOf("# Reglas importantes"));
+  });
+
+  it("aplana los saltos de línea de cada aviso", () => {
+    const p = construirPrompt(clinica, ahora, ["línea uno\nlínea dos"]);
+    expect(p).toContain('- "línea uno línea dos"');
+  });
+});

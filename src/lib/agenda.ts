@@ -162,26 +162,40 @@ const fmtHora = (ms: number) => {
 };
 const DIAS_ES = ["domingo", "lunes", "martes", "miércoles", "jueves", "viernes", "sábado"];
 
+/**
+ * Fecha amigable de `inicio` vista desde `referencia` (ambas en hora de Argentina):
+ * "hoy a las 16:30", "mañana 16:30", "ayer a las 16:30" o "el jueves 26 a las 16:30".
+ */
+export function cuandoAmigable(inicio: Date, referencia: Date): string {
+  const ini = inicio.getTime();
+  const dias = Math.round((inicioDeDia(ini) - inicioDeDia(referencia.getTime())) / DIA);
+  const hora = fmtHora(ini);
+  if (dias === 0) return `hoy a las ${hora}`;
+  if (dias === 1) return `mañana ${hora}`;
+  if (dias === -1) return `ayer a las ${hora}`;
+  const d = aArt(ini);
+  return `el ${DIAS_ES[d.getUTCDay()]} ${d.getUTCDate()} a las ${hora}`;
+}
+
 export function recordatoriosPara(turnos: Turno[], cfg: ClinicaConfig, ahora: Date): Recordatorio[] {
   const out: Recordatorio[] = [];
   for (const t of turnos) {
     if (t.estado === "cancelado") continue;
     const ini = new Date(t.inicio).getTime();
-    const trat = cfg.tratamientos.find((x) => x.id === t.tratamientoId)?.nombre ?? "tu turno";
-    const nombre = t.paciente.split(" ")[0];
-    const hora = fmtHora(ini);
-    const dia = aArt(ini);
-    const cuando = `${DIAS_ES[dia.getUTCDay()]} ${dia.getUTCDate()}/${dia.getUTCMonth() + 1}`;
-    const defs: { tipo: "24h" | "2h"; antes: number; texto: string }[] = [
+    const trat = cfg.tratamientos.find((x) => x.id === t.tratamientoId)?.nombre ?? "tu tratamiento";
+    const nombre = t.paciente.trim().split(/\s+/)[0];
+    const defs: { tipo: "24h" | "2h"; antes: number; texto: (cuando: string) => string }[] = [
       {
         tipo: "24h",
         antes: DIA,
-        texto: `Hola ${nombre}! Te recordamos que mañana (${cuando}) a las ${hora} tenés turno para ${trat} en ${cfg.nombre}. Si no podés venir, avisanos y lo reprogramamos.`,
+        texto: (cuando) =>
+          `Hola ${nombre} 👋 te recordamos tu turno de ${trat} ${cuando} en *${cfg.nombre}*. Respondé *SÍ* para confirmar o avisanos si necesitás cambiarlo.`,
       },
       {
         tipo: "2h",
         antes: 2 * 3600_000,
-        texto: `Hola ${nombre}! Te esperamos en ${cfg.nombre} en dos horas, a las ${hora}, para ${trat}. Estamos en ${cfg.direccion}.`,
+        texto: (cuando) =>
+          `Hola ${nombre} 😊 te esperamos ${cuando} (en dos horas) para tu ${trat} en *${cfg.nombre}*, ${cfg.direccion}. ¡Nos vemos!`,
       },
     ];
     for (const d of defs) {
@@ -190,12 +204,29 @@ export function recordatoriosPara(turnos: Turno[], cfg: ClinicaConfig, ahora: Da
         turnoId: t.id,
         tipo: d.tipo,
         enviarEn: new Date(enviarEn).toISOString(),
-        texto: d.texto,
+        texto: d.texto(cuandoAmigable(new Date(ini), new Date(enviarEn))),
         enviado: enviarEn <= ahora.getTime(),
       });
     }
   }
   return out;
+}
+
+/**
+ * Recordatorios que se "envían" al pasar el tiempo de `antes` a `despues`: los que no
+ * estaban enviados y ahora sí, sólo de turnos agendados por el bot y no cancelados.
+ * Ordenados por `enviarEn`.
+ */
+export function recordatoriosNuevos(turnos: Turno[], cfg: ClinicaConfig, antes: Date, despues: Date): Recordatorio[] {
+  const delBot = turnos.filter((t) => t.origen === "bot" && t.estado !== "cancelado");
+  const yaEnviados = new Set(
+    recordatoriosPara(delBot, cfg, antes)
+      .filter((r) => r.enviado)
+      .map((r) => `${r.turnoId}:${r.tipo}`),
+  );
+  return recordatoriosPara(delBot, cfg, despues)
+    .filter((r) => r.enviado && !yaEnviados.has(`${r.turnoId}:${r.tipo}`))
+    .sort((a, b) => a.enviarEn.localeCompare(b.enviarEn));
 }
 
 const normalizar = (s: string) =>
@@ -235,3 +266,31 @@ export function ahoraInicialDemo(real: Date, cfg: ClinicaConfig): Date {
   }
   return new Date(Math.floor(ms / 3600_000) * 3600_000); // sin días de atención: no debería pasar
 }
+
+/** "Simular día siguiente": el próximo día de atención (posterior al de `ahora`) a la hora de apertura. */
+export function siguienteApertura(ahora: Date, cfg: ClinicaConfig): Date {
+  const hoy = inicioDeDia(ahora.getTime());
+  for (let i = 1; i <= 7; i++) {
+    const base = hoy + i * DIA;
+    const v = ventanaDelDia(cfg, diaSemana(base));
+    if (v) return new Date(base + v.desde * MIN);
+  }
+  return new Date(hoy + DIA + hhmm(cfg.horario.desde) * MIN); // sin días de atención: no debería pasar
+}
+
+/**
+ * Los próximos `n` días de atención desde el día de `ahora` (incluido si atiende), como
+ * epoch ms de las 00:00 ART de cada día.
+ */
+export function diasDeAtencion(ahora: Date, cfg: ClinicaConfig, n = 5): number[] {
+  const out: number[] = [];
+  const hoy = inicioDeDia(ahora.getTime());
+  for (let i = 0; out.length < n && i < n * 3; i++) {
+    const base = hoy + i * DIA;
+    if (ventanaDelDia(cfg, diaSemana(base))) out.push(base);
+  }
+  return out;
+}
+
+/** Epoch (ms) de las 00:00 hora de Argentina del día que contiene `ms`. */
+export const inicioDelDiaArt = inicioDeDia;
