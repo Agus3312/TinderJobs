@@ -1,6 +1,7 @@
 import { convertToModelMessages, isStepCount, streamText, type UIMessage } from "ai";
 import { clinica } from "@/config/clinica";
 import { construirPrompt } from "@/lib/prompt";
+import { esErrorDeAutenticacion, problemaDeHistorial } from "@/lib/limitesChat";
 import { tools } from "@/lib/tools";
 
 export const maxDuration = 30;
@@ -11,6 +12,8 @@ const MODELO = process.env.AI_MODEL ?? "anthropic/claude-sonnet-5.5";
 const json = (body: unknown, status: number) =>
   Response.json(body, { status });
 
+/** Tope de la respuesta del modelo (las respuestas son de WhatsApp: cortas). */
+const MAX_TOKENS_RESPUESTA = 600;
 const MAX_AVISOS = 10;
 const MAX_CHARS_AVISO = 500;
 
@@ -24,10 +27,18 @@ function avisosValidos(v: unknown): v is string[] | undefined {
   );
 }
 
+/**
+ * ¿Hay con qué autenticarse en el AI Gateway? Clave, o token OIDC de Vercel: en local viene en
+ * la variable (vercel env pull); deployado en Vercel puede llegar sólo en el header del request.
+ */
+function hayIa(req: Request): boolean {
+  return Boolean(
+    process.env.AI_GATEWAY_API_KEY || process.env.VERCEL_OIDC_TOKEN || req.headers.get("x-vercel-oidc-token"),
+  );
+}
+
 export async function POST(req: Request) {
-  if (!process.env.AI_GATEWAY_API_KEY && !process.env.VERCEL_OIDC_TOKEN) {
-    return json({ error: "sin_ia" }, 503);
-  }
+  if (!hayIa(req)) return json({ error: "sin_ia" }, 503);
 
   let body: { messages?: unknown; ahora?: unknown; avisos?: unknown };
   try {
@@ -42,6 +53,9 @@ export async function POST(req: Request) {
   const fecha = typeof ahora === "string" ? new Date(ahora) : null;
   if (!fecha || Number.isNaN(fecha.getTime())) return json({ error: "ahora_invalido" }, 400);
   if (!avisosValidos(avisos)) return json({ error: "avisos_invalidos" }, 400);
+  // Topes de costo: cantidad de mensajes, largo total y largo de cada mensaje del paciente.
+  const problema = problemaDeHistorial(messages);
+  if (problema) return json({ error: problema }, 400);
 
   let modelMessages;
   try {
@@ -56,12 +70,14 @@ export async function POST(req: Request) {
     messages: modelMessages,
     tools,
     stopWhen: isStepCount(5),
+    maxOutputTokens: MAX_TOKENS_RESPUESTA,
   });
 
   return result.toUIMessageStreamResponse({
     onError: (e) => {
       console.error("[chat]", e);
-      return "ia_error";
+      // Sin credenciales válidas para el AI Gateway: el chat muestra el aviso de "sin IA".
+      return esErrorDeAutenticacion(e) ? "sin_ia" : "ia_error";
     },
   });
 }

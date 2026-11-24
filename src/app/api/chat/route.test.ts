@@ -13,11 +13,11 @@ afterAll(() => {
   else process.env[ENV] = previa;
 });
 
-const pedir = (body: unknown) =>
+const pedir = (body: unknown, headers: Record<string, string> = {}) =>
   POST(
     new Request("http://localhost/api/chat", {
       method: "POST",
-      headers: { "content-type": "application/json" },
+      headers: { "content-type": "application/json", ...headers },
       body: typeof body === "string" ? body : JSON.stringify(body),
     }),
   );
@@ -66,5 +66,34 @@ describe("POST /api/chat: validación", () => {
     process.env[ENV] = "clave-de-prueba";
     if (oidc !== undefined) process.env.VERCEL_OIDC_TOKEN = oidc;
     expect(r.status).toBe(503);
+  });
+
+  it("en Vercel, el token OIDC en el header alcanza (no responde sin_ia)", async () => {
+    const oidc = process.env.VERCEL_OIDC_TOKEN;
+    delete process.env[ENV];
+    delete process.env.VERCEL_OIDC_TOKEN;
+    const r = await pedir({ ...base, avisos: ["x".repeat(501)] }, { "x-vercel-oidc-token": "token-de-prueba" });
+    process.env[ENV] = "clave-de-prueba";
+    if (oidc !== undefined) process.env.VERCEL_OIDC_TOKEN = oidc;
+    expect(r.status).toBe(400);
+    expect(await r.json()).toEqual({ error: "avisos_invalidos" });
+  });
+});
+
+describe("POST /api/chat: topes de costo", () => {
+  const texto = (role: "user" | "assistant", t: string, i: number) => ({ id: `${role}-${i}`, role, parts: [{ type: "text", text: t }] });
+
+  it("más de 40 mensajes", async () => {
+    const messages = Array.from({ length: 41 }, (_, i) => texto(i % 2 ? "assistant" : "user", "hola", i));
+    await esperar400({ ...base, messages }, "demasiados_mensajes");
+  });
+
+  it("más de 20.000 caracteres en total", async () => {
+    const messages = Array.from({ length: 10 }, (_, i) => texto(i % 2 ? "assistant" : "user", i % 2 ? "a".repeat(4000) : "hola", i));
+    await esperar400({ ...base, messages }, "historial_largo");
+  });
+
+  it("un mensaje del paciente de más de 500 caracteres", async () => {
+    await esperar400({ ...base, messages: [texto("user", "x".repeat(501), 0)] }, "mensaje_largo");
   });
 });

@@ -46,7 +46,7 @@ AI_GATEWAY_API_KEY=tu_clave
 
 Sin la clave la demo igual abre. El chat muestra el aviso "La demo no está conectada a la IA todavía" y el panel funciona igual.
 
-Deployada en Vercel no hace falta la clave: el AI Gateway se autentica solo con el token OIDC del proyecto (`VERCEL_OIDC_TOKEN`). Igual podés cargarla si preferís.
+Deployada en Vercel no hace falta la clave: el AI Gateway se autentica solo con el token OIDC del proyecto (llega como `VERCEL_OIDC_TOKEN` o en el header `x-vercel-oidc-token` de cada request). Igual podés cargarla si preferís. Antes de compartir el link, probá un mensaje en el deploy: si el chat dice "La demo no está conectada a la IA", cargá `AI_GATEWAY_API_KEY` y hacé Redeploy.
 
 Alternativa en local sin crear una clave: con el proyecto ya vinculado a Vercel (`vercel link`), corré `vercel env pull .env.local`. Eso baja un `VERCEL_OIDC_TOKEN` temporal (dura unas horas; si vence, volvé a correr el comando).
 
@@ -74,6 +74,13 @@ Con cambiar ese archivo alcanza: la IA, la agenda, los recordatorios y los color
 4. **Deploy**. Al terminar tenés un link para abrir desde el celular en la reunión.
 
 Si cambiás variables después del primer deploy, hacé **Redeploy** para que tomen efecto.
+
+### Cuidar el gasto (antes de compartir el link)
+
+El link es público: cualquiera que lo tenga puede chatear, y cada mensaje consume IA. El servidor ya pone topes por request (hasta 40 mensajes de historial, 20.000 caracteres en total, 500 por mensaje del paciente y respuestas cortas de hasta 600 tokens). Además, configurá estas dos cosas en el dashboard de Vercel (no son código):
+
+1. **Límite de gasto del AI Gateway.** En **AI Gateway**, poné un presupuesto o límite de gasto mensual chico (por ejemplo USD 20). Si se alcanza, el chat deja de responder pero no te llega una factura sorpresa.
+2. **Rate limit en el Firewall.** En **Firewall → Rules**, agregá una regla para el path `/api/chat` con **Rate Limit** de unas 20 requests por minuto por IP. Una conversación normal usa 1 a 3 requests por mensaje.
 
 ## Guión de demo para la reunión
 

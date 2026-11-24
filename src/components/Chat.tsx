@@ -5,9 +5,10 @@ import { DefaultChatTransport, lastAssistantMessageIsCompleteWithToolCalls, type
 import { Fragment, useEffect, useRef, useState, type ReactNode } from "react";
 import { clinica } from "@/config/clinica";
 import { inicioDelDiaArt } from "@/lib/agenda";
+import { LIMITES, recortarHistorial } from "@/lib/limitesChat";
 import type { MensajeSistema } from "./Demo";
 
-const MAX_CHARS = 500;
+const MAX_CHARS = LIMITES.mensajeUsuario;
 /** Tope de reenvíos automáticos (rondas de herramientas) por cada mensaje del paciente. */
 export const MAX_RONDAS_AUTO = 8;
 const TZ = "America/Argentina/Buenos_Aires";
@@ -89,6 +90,10 @@ export default function Chat({
       new DefaultChatTransport({
         api: "/api/chat",
         body: () => ({ ahora: obtenerAhora().toISOString(), avisos: obtenerAvisos?.() ?? [] }),
+        // En una demo larga mandamos sólo los últimos turnos (el servidor rechaza historiales enormes).
+        prepareSendMessagesRequest: ({ id, messages, body, trigger, messageId }) => ({
+          body: { ...body, id, messages: recortarHistorial(messages), trigger, messageId },
+        }),
       }),
   );
   const [horas, setHoras] = useState<Record<string, string>>({});
@@ -258,7 +263,8 @@ export default function Chat({
               rows={1}
               placeholder={ocupado ? "Respondiendo…" : "Escribí un mensaje"}
               aria-label="Mensaje"
-              className="max-h-32 w-full resize-none bg-transparent text-[15px] leading-6 text-[#111b21] outline-none [field-sizing:content] placeholder:text-[#8696a0] read-only:cursor-progress"
+              // text-base (16 px): con menos, Safari en iPhone hace zoom al enfocar el campo.
+              className="max-h-32 w-full resize-none bg-transparent text-base leading-6 text-[#111b21] outline-none [field-sizing:content] placeholder:text-[#8696a0] read-only:cursor-progress"
             />
             {texto.length > MAX_CHARS - 100 && (
               <span className="ml-2 shrink-0 self-center text-[11px] tabular-nums text-[#8696a0]">
