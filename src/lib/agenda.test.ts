@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
 import { clinica } from "@/config/clinica";
 import {
+  ahoraInicialDemo,
   slotsLibres,
   agendar,
   reprogramar,
@@ -298,5 +299,32 @@ describe("turnosSemilla", () => {
       expect(reprogramar(otros.concat(t), clinica, ahora, t.id, t.inicio).ok).toBe(true);
     }
     expect(new Set(s.map((t) => t.id)).size).toBe(s.length);
+  });
+});
+
+describe("ahoraInicialDemo", () => {
+  // Fechas en ART (UTC-3). 23/11/2026 es lunes.
+  const art = (s: string) => new Date(`${s}-03:00`);
+  it("dentro del horario: redondea a la hora", () => {
+    expect(ahoraInicialDemo(art("2026-11-24T15:47:12"), clinica)).toEqual(art("2026-11-24T15:00:00"));
+  });
+  it("a la hora exacta de apertura la mantiene", () => {
+    expect(ahoraInicialDemo(art("2026-11-24T09:00:00"), clinica)).toEqual(art("2026-11-24T09:00:00"));
+  });
+  it("antes de abrir en día hábil: hoy a las 09:00", () => {
+    expect(ahoraInicialDemo(art("2026-11-24T07:15:00"), clinica)).toEqual(art("2026-11-24T09:00:00"));
+  });
+  it("después de cerrar: el día siguiente a las 09:00", () => {
+    expect(ahoraInicialDemo(art("2026-11-24T19:00:00"), clinica)).toEqual(art("2026-11-25T09:00:00"));
+    expect(ahoraInicialDemo(art("2026-11-24T23:30:00"), clinica)).toEqual(art("2026-11-25T09:00:00"));
+  });
+  it("viernes a la noche: sábado 09:00", () => {
+    expect(ahoraInicialDemo(art("2026-11-27T20:00:00"), clinica)).toEqual(art("2026-11-28T09:00:00"));
+  });
+  it("sábado después de las 13: lunes 09:00", () => {
+    expect(ahoraInicialDemo(art("2026-11-28T14:00:00"), clinica)).toEqual(art("2026-11-30T09:00:00"));
+  });
+  it("domingo: lunes 09:00", () => {
+    expect(ahoraInicialDemo(art("2026-11-29T11:00:00"), clinica)).toEqual(art("2026-11-30T09:00:00"));
   });
 });

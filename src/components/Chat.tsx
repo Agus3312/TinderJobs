@@ -7,6 +7,8 @@ import { clinica } from "@/config/clinica";
 import type { MensajeSistema } from "./Demo";
 
 const MAX_CHARS = 500;
+/** Tope de reenvíos automáticos (rondas de herramientas) por cada mensaje del paciente. */
+export const MAX_RONDAS_AUTO = 8;
 const TZ = "America/Argentina/Buenos_Aires";
 
 export const SUGERENCIAS = [
@@ -65,11 +67,20 @@ export default function Chat({ className = "", mensajesSistema, obtenerAhora, re
   );
   const [horas, setHoras] = useState<Record<string, string>>({});
   const [errorAt, setErrorAt] = useState<string>();
+  const [cortadoAt, setCortadoAt] = useState<string>();
   const [texto, setTexto] = useState("");
 
   const { messages, sendMessage, status, error, addToolOutput } = useChat({
     transport,
-    sendAutomaticallyWhen: lastAssistantMessageIsCompleteWithToolCalls,
+    sendAutomaticallyWhen({ messages }) {
+      if (!lastAssistantMessageIsCompleteWithToolCalls({ messages })) return false;
+      if (rondasDesdeUltimoUsuario(messages) >= MAX_RONDAS_AUTO) {
+        // Evita un loop de herramientas: cortamos y mostramos el aviso de error.
+        setCortadoAt(reloj().toISOString());
+        return false;
+      }
+      return true;
+    },
     onToolCall({ toolCall }) {
       if (toolCall.dynamic) return;
       const output = onHerramienta(toolCall.toolName, toolCall.input);
@@ -93,7 +104,12 @@ export default function Chat({ className = "", mensajesSistema, obtenerAhora, re
     status === "submitted" ||
     (status === "streaming" && (ultimo?.role !== "assistant" || !terminaConTexto(ultimo)));
 
-  const items = construirItems(messages, mensajesSistema, horas, error, errorAt);
+  const aviso: EstadoAviso | undefined = error
+    ? { variante: error.message.includes("sin_ia") ? "sin_ia" : "error", at: errorAt }
+    : cortadoAt
+      ? { variante: "error", at: cortadoAt }
+      : undefined;
+  const items = construirItems(messages, mensajesSistema, horas, aviso);
 
   const scrollRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
@@ -101,9 +117,23 @@ export default function Chat({ className = "", mensajesSistema, obtenerAhora, re
     if (el) el.scrollTo({ top: el.scrollHeight, behavior: "smooth" });
   }, [items.length, messages, escribiendo]);
 
+  // Re-enfocar el input al terminar de responder, sólo si el paciente estaba escribiendo
+  // (foco dentro del formulario). Con los chips no, para no abrir el teclado en el celular.
+  const formRef = useRef<HTMLFormElement>(null);
+  const inputRef = useRef<HTMLTextAreaElement>(null);
+  const reenfocar = useRef(false);
+  useEffect(() => {
+    if (!ocupado && reenfocar.current) {
+      reenfocar.current = false;
+      inputRef.current?.focus();
+    }
+  }, [ocupado]);
+
   const enviar = (t: string) => {
     const limpio = t.trim().slice(0, MAX_CHARS);
     if (!limpio || ocupado) return;
+    reenfocar.current = !!formRef.current?.contains(document.activeElement);
+    setCortadoAt(undefined);
     const metadata: Metadatos = { at: reloj().toISOString() };
     void sendMessage({ text: limpio, metadata });
     setTexto("");
@@ -156,6 +186,7 @@ export default function Chat({ className = "", mensajesSistema, obtenerAhora, re
       )}
 
       <form
+        ref={formRef}
         className="bg-[#f0f2f5] px-2 py-2 sm:px-4"
         onSubmit={(e) => {
           e.preventDefault();
@@ -165,6 +196,7 @@ export default function Chat({ className = "", mensajesSistema, obtenerAhora, re
         <div className="mx-auto flex max-w-3xl items-end gap-2">
           <div className="flex min-h-11 flex-1 items-end rounded-3xl bg-white px-4 py-2.5 shadow-[0_1px_0.5px_rgba(11,20,26,.08)]">
             <textarea
+              ref={inputRef}
               value={texto}
               onChange={(e) => setTexto(e.target.value.slice(0, MAX_CHARS))}
               onKeyDown={(e) => {
@@ -220,12 +252,22 @@ function herramientaPendiente(m: UIMessage): string | undefined {
   return undefined;
 }
 
+/** Rondas de pedido al modelo (step-start) desde el último mensaje del paciente. */
+function rondasDesdeUltimoUsuario(messages: UIMessage[]): number {
+  let n = 0;
+  for (let i = messages.length - 1; i >= 0 && messages[i].role !== "user"; i--) {
+    n += messages[i].parts.filter((p) => p.type === "step-start").length;
+  }
+  return n;
+}
+
+type EstadoAviso = { variante: "sin_ia" | "error"; at?: string };
+
 function construirItems(
   messages: UIMessage[],
   sistema: MensajeSistema[],
   horas: Record<string, string>,
-  error: Error | undefined,
-  errorAt: string | undefined,
+  aviso: EstadoAviso | undefined,
 ): Item[] {
   // 1) Burbujas del chat, en orden. Cada parte de texto del asistente es una burbuja.
   const chat: Item[] = [];
@@ -240,14 +282,8 @@ function construirItems(
       if (t) chat.push({ tipo: "msg", key: `${m.id}-${j}`, propio, texto: t, at, leido, primero: false });
     });
   });
-  if (error) {
-    chat.push({
-      tipo: "aviso",
-      key: "error",
-      variante: error.message.includes("sin_ia") ? "sin_ia" : "error",
-      at: errorAt ?? ultimaHora,
-      primero: false,
-    });
+  if (aviso) {
+    chat.push({ tipo: "aviso", key: "error", variante: aviso.variante, at: aviso.at ?? ultimaHora, primero: false });
   }
 
   // 2) Intercalar los mensajes locales (bienvenida, recordatorios) por hora.

@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { clinica } from "@/config/clinica";
-import type { Turno } from "@/lib/agenda";
+import { ahoraInicialDemo, type Turno } from "@/lib/agenda";
 import { ejecutarHerramienta } from "@/lib/ejecutarHerramienta";
 import { turnosSemilla } from "@/lib/semilla";
 import Chat, { ChatCargando } from "./Chat";
@@ -26,8 +26,8 @@ export default function Demo() {
 }
 
 function estadoInicial() {
-  const ahora = new Date();
-  ahora.setUTCMinutes(0, 0, 0); // hora "redonda" (Argentina es UTC-3 entero): p. ej., 15:00
+  // Si ahora la clínica está abierta, la hora actual redondeada; si no, la próxima apertura.
+  const ahora = ahoraInicialDemo(new Date(), clinica);
   const bienvenida: MensajeSistema = {
     id: "bienvenida",
     at: ahora.toISOString(),
@@ -58,9 +58,6 @@ function DemoCliente() {
   const fijadoEnRef = useRef(inicial.fijadoEn);
 
   useEffect(() => {
-    turnosRef.current = turnos;
-  }, [turnos]);
-  useEffect(() => {
     if (ahoraRef.current !== ahora) {
       ahoraRef.current = ahora;
       fijadoEnRef.current = Date.now();
@@ -73,23 +70,29 @@ function DemoCliente() {
     [],
   );
 
+  /**
+   * Única vía para cambiar la agenda: actualiza ref (autoritativa, para callbacks
+   * encadenados) y estado (para renderizar). Task 5 debe usarla también.
+   */
+  const actualizarTurnos = useCallback((nuevos: Turno[]) => {
+    turnosRef.current = nuevos;
+    setTurnos(nuevos);
+  }, []);
+
   const onHerramienta = useCallback(
     (nombre: string, input: unknown) => {
       const r = ejecutarHerramienta(nombre, input, {
         turnos: turnosRef.current,
         ahora: ahoraRef.current,
       });
-      if (r.turnos) {
-        turnosRef.current = r.turnos;
-        setTurnos(r.turnos);
-      }
+      if (r.turnos) actualizarTurnos(r.turnos);
       if (r.derivacion) {
         const motivo = r.derivacion;
         setDerivaciones((prev) => [...prev, motivo]);
       }
       return r.output;
     },
-    [],
+    [actualizarTurnos],
   );
 
   const obtenerAhora = useCallback(() => ahoraRef.current, []);

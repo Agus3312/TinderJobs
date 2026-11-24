@@ -212,3 +212,26 @@ export function turnosDePaciente(turnos: Turno[], paciente: string): Turno[] {
     .filter((t) => t.estado !== "cancelado" && normalizar(t.paciente).includes(q))
     .sort((a, b) => new Date(a.inicio).getTime() - new Date(b.inicio).getTime());
 }
+
+/**
+ * Momento con el que arranca la demo: si `real` cae dentro del horario de atención
+ * (hora de Argentina), `real` redondeado a la hora; si no, el próximo día de atención
+ * a la hora de apertura.
+ */
+export function ahoraInicialDemo(real: Date, cfg: ClinicaConfig): Date {
+  const ms = real.getTime();
+  const v = ventanaDelDia(cfg, diaSemana(ms));
+  const min = minutosDelDia(ms);
+  if (v && min >= v.desde && min < v.hasta) {
+    return new Date(Math.floor(ms / 3600_000) * 3600_000); // ART es UTC-3 entero
+  }
+  const hoy = inicioDeDia(ms);
+  for (let i = 0; i <= 7; i++) {
+    const base = hoy + i * DIA;
+    const w = ventanaDelDia(cfg, diaSemana(base));
+    if (!w) continue;
+    const apertura = base + w.desde * MIN;
+    if (apertura > ms) return new Date(apertura);
+  }
+  return new Date(Math.floor(ms / 3600_000) * 3600_000); // sin días de atención: no debería pasar
+}
