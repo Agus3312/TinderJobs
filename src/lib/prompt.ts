@@ -1,4 +1,5 @@
 import type { ClinicaConfig } from "@/config/clinica";
+import { fechaAmigable } from "@/lib/agenda";
 
 const TZ = "America/Argentina/Buenos_Aires";
 
@@ -46,6 +47,11 @@ function horarioEnTexto(h: ClinicaConfig["horario"]): string {
   return t + " (hora de Argentina). Domingos cerrado";
 }
 
+/** Aviso automático con su fecha de envío: "(enviado el miércoles 25 a las 16:30) Hola Ana…". */
+export function formatearAviso(texto: string, enviadoEn: Date): string {
+  return `(enviado ${fechaAmigable(enviadoEn)}) ${texto}`;
+}
+
 function seccionAvisos(avisos: string[] | undefined): string {
   const lista = (avisos ?? []).map((a) => a.trim()).filter(Boolean);
   if (lista.length === 0) return "";
@@ -54,6 +60,7 @@ function seccionAvisos(avisos: string[] | undefined): string {
 
 # Mensajes automáticos que ya le mandaste al paciente:
 ${items}
+- Cada aviso empieza con la fecha y hora en que se envió, entre paréntesis. Palabras como "hoy" o "mañana" dentro de un aviso son relativas a ese momento de envío, no a la fecha de hoy.
 - Si la persona responde "SÍ", "confirmo" o algo parecido a uno de estos recordatorios, confirmale el turno con calidez (no hace falta usar ninguna herramienta).
 - Si quiere cambiar el día o la hora, seguí el flujo de reprogramar_turno (ver_mis_turnos, ver_disponibilidad y reprogramar_turno).`;
 }

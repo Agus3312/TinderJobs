@@ -94,7 +94,7 @@ function BloqueTurno({ turno: t, pasado }: { turno: Turno; pasado: boolean }) {
     <li
       data-turno={t.id}
       className={`relative min-w-0 rounded-lg border-l-[3px] px-2 py-1.5 shadow-[0_1px_1px_rgba(15,23,42,.04)] ${borde} ${fondo} ${
-        bot ? "animate-nuevo" : ""
+        bot && !cancelado ? "animate-nuevo" : ""
       } ${pasado && !bot ? "opacity-55" : ""}`}
       title={`${hora(t.inicio)} · ${tratamientoCorto(t.tratamientoId)} · ${t.paciente}${cancelado ? " (cancelado)" : ""}`}
     >

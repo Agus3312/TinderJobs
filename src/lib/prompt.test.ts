@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { construirPrompt, formatearPrecio } from "./prompt";
+import { construirPrompt, formatearAviso, formatearPrecio } from "./prompt";
 import { clinica } from "@/config/clinica";
 
 // martes 24 de noviembre de 2026, 10:30 hora Argentina (13:30 UTC)
@@ -82,5 +82,20 @@ describe("construirPrompt con avisos", () => {
   it("aplana los saltos de línea de cada aviso", () => {
     const p = construirPrompt(clinica, ahora, ["línea uno\nlínea dos"]);
     expect(p).toContain('- "línea uno línea dos"');
+  });
+});
+
+describe("avisos con fecha de envío", () => {
+  it("formatearAviso antepone la fecha de envío en hora de Argentina", () => {
+    // 19:30 UTC = 16:30 ART del miércoles 25
+    expect(formatearAviso("Hola Ana 👋 te recordamos tu turno mañana 16:30.", new Date("2026-11-25T19:30:00Z"))).toBe(
+      "(enviado el miércoles 25 a las 16:30) Hola Ana 👋 te recordamos tu turno mañana 16:30.",
+    );
+  });
+
+  it("el prompt aclara que hoy/mañana de los avisos son relativos al envío", () => {
+    const p = construirPrompt(clinica, ahora, [formatearAviso("Hola, tu turno es mañana 16:30", new Date("2026-11-23T19:30:00Z"))]);
+    expect(p).toContain("(enviado el lunes 23 a las 16:30) Hola, tu turno es mañana 16:30");
+    expect(p).toMatch(/"hoy" o "mañana" dentro de un aviso son relativas a ese momento de envío/);
   });
 });

@@ -16,13 +16,15 @@ type Props = {
   /** Reloj de la demo: `ahora` + el tiempo real transcurrido. */
   reloj: () => Date;
   derivaciones: string[];
+  /** Recordatorios de turnos del bot que se mandaron: clave -> hora de envío. */
+  enviados: Record<string, string>;
   /** Avanza al próximo día de atención; devuelve cuántos recordatorios se enviaron. */
   onSimularDia: () => number;
 };
 
 type Toast = { id: number; texto: string };
 
-export default function PanelClinica({ className = "", turnos, ahora, reloj, derivaciones, onSimularDia }: Props) {
+export default function PanelClinica({ className = "", turnos, ahora, reloj, derivaciones, enviados, onSimularDia }: Props) {
   // Hora simulada "en vivo" (avanza con el tiempo real; se recalcula al cambiar `ahora`).
   const [vivo, setVivo] = useState(() => reloj());
   useEffect(() => {
@@ -51,7 +53,7 @@ export default function PanelClinica({ className = "", turnos, ahora, reloj, der
     setToast({ id: Date.now(), texto });
   };
 
-  const turnosDelBot = turnos.filter((t) => t.origen === "bot").length;
+  const turnosDelBot = turnos.filter((t) => t.origen === "bot" && t.estado !== "cancelado").length;
 
   return (
     <aside
@@ -116,7 +118,7 @@ export default function PanelClinica({ className = "", turnos, ahora, reloj, der
         </Seccion>
 
         <Seccion titulo="Recordatorios automáticos" subtitulo="Por WhatsApp, 24 h y 2 h antes de cada turno">
-          <Recordatorios turnos={turnos} ahora={vivo} />
+          <Recordatorios turnos={turnos} ahora={vivo} enviados={enviados} />
         </Seccion>
 
         <Seccion

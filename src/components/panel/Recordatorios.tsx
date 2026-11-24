@@ -1,66 +1,95 @@
 "use client";
 
 import { clinica } from "@/config/clinica";
-import { cuandoAmigable, recordatoriosPara, type Turno } from "@/lib/agenda";
+import { claveRecordatorio, cuandoAmigable, recordatoriosPara, type Recordatorio, type Turno } from "@/lib/agenda";
 import { tratamientoCorto } from "./formato";
 
 const MAX_ITEMS = 6;
 
-type Props = { turnos: Turno[]; ahora: Date };
+type Props = {
+  turnos: Turno[];
+  ahora: Date;
+  /** Recordatorios de turnos del bot que se mandaron de verdad: clave -> hora de envío. */
+  enviados: Record<string, string>;
+};
+
+type Estado = "enviado" | "omitido" | "programado";
+type Fila = { r: Recordatorio; t: Turno; estado: Estado; cuando: string; orden: string };
+
+const CHIP: Record<Estado, { icono: string; clase: string }> = {
+  enviado: { icono: "✔", clase: "bg-emerald-50 text-emerald-700 ring-emerald-200" },
+  programado: { icono: "⏳", clase: "bg-slate-100 text-slate-600 ring-slate-200" },
+  omitido: { icono: "–", clase: "bg-white text-slate-400 ring-slate-200" },
+};
 
 /**
- * Recordatorios automáticos por WhatsApp. Para que la lista sea corta mostramos los de
- * turnos agendados por el bot (enviados o no) y los próximos a enviarse del resto.
- * Primero los enviados más recientes, después los programados más próximos.
+ * Recordatorios automáticos por WhatsApp de turnos que todavía no ocurrieron. Para que la
+ * lista sea corta: los de turnos del bot (enviados, programados u omitidos) y los próximos a
+ * enviarse del resto. Primero los enviados más recientes, después omitidos y programados.
  */
-export default function Recordatorios({ turnos, ahora }: Props) {
+export default function Recordatorios({ turnos, ahora, enviados }: Props) {
   const porId = new Map(turnos.map((t) => [t.id, t]));
-  const todos = recordatoriosPara(turnos, clinica, ahora).filter(
-    (r) => porId.get(r.turnoId)?.origen === "bot" || !r.enviado,
+  const ahoraMs = ahora.getTime();
+  const filas: Fila[] = [];
+  for (const r of recordatoriosPara(turnos, clinica, ahora)) {
+    const t = porId.get(r.turnoId)!;
+    if (new Date(t.inicio).getTime() <= ahoraMs) continue; // el turno ya pasó
+    const enviadoEn = t.origen === "bot" ? enviados[claveRecordatorio(r)] : undefined;
+    if (enviadoEn) {
+      filas.push({ r, t, estado: "enviado", cuando: cuandoAmigable(new Date(enviadoEn), ahora), orden: enviadoEn });
+    } else if (!r.enviado) {
+      filas.push({ r, t, estado: "programado", cuando: cuandoAmigable(new Date(r.enviarEn), ahora), orden: r.enviarEn });
+    } else if (t.origen === "bot") {
+      // Venció sin mandarse: el turno se reservó con menos anticipación.
+      filas.push({ r, t, estado: "omitido", cuando: "", orden: r.enviarEn });
+    }
+  }
+  const rango: Record<Estado, number> = { enviado: 0, omitido: 1, programado: 2 };
+  filas.sort((a, b) =>
+    a.estado !== b.estado
+      ? rango[a.estado] - rango[b.estado]
+      : a.estado === "enviado"
+        ? b.orden.localeCompare(a.orden)
+        : a.orden.localeCompare(b.orden),
   );
-  const enviados = todos.filter((r) => r.enviado).sort((a, b) => b.enviarEn.localeCompare(a.enviarEn));
-  const programados = todos.filter((r) => !r.enviado).sort((a, b) => a.enviarEn.localeCompare(b.enviarEn));
-  const lista = [...enviados, ...programados];
-  const visibles = lista.slice(0, MAX_ITEMS);
-  const resto = lista.length - visibles.length;
+  const visibles = filas.slice(0, MAX_ITEMS);
+  const resto = filas.length - visibles.length;
 
-  if (lista.length === 0) {
+  if (filas.length === 0) {
     return <p className="text-[13px] text-slate-500">No hay recordatorios pendientes.</p>;
   }
 
   return (
     <>
       <ul className="divide-y divide-slate-100">
-        {visibles.map((r) => {
-          const t = porId.get(r.turnoId)!;
-          const bot = t.origen === "bot";
-          return (
-            <li key={`${r.turnoId}-${r.tipo}`} className="flex items-center gap-3 py-2 first:pt-0 last:pb-0">
-              <span
-                className={`inline-flex w-[104px] shrink-0 items-center justify-center gap-1 rounded-full px-2 py-0.5 text-[11.5px] font-semibold ${
-                  r.enviado ? "bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200" : "bg-slate-100 text-slate-600 ring-1 ring-slate-200"
-                }`}
-              >
-                <span aria-hidden>{r.enviado ? "✔" : "⏳"}</span> {r.enviado ? "enviado" : "programado"}
-              </span>
-              <div className="min-w-0 flex-1">
-                <p className="truncate text-[13px] font-medium text-slate-800">
-                  {t.paciente}
-                  <span className="font-normal text-slate-500"> · {tratamientoCorto(t.tratamientoId)}</span>
-                  {bot && (
-                    <span className="ml-1.5 rounded-full bg-amber-100 px-1.5 py-px align-[1px] text-[10px] font-semibold text-amber-800">
-                      ✨ por el asistente
-                    </span>
-                  )}
-                </p>
-                <p className="truncate text-[12px] text-slate-500">
-                  Aviso {r.tipo === "24h" ? "24 h" : "2 h"} antes · {r.enviado ? "enviado" : "sale"}{" "}
-                  {cuandoAmigable(new Date(r.enviarEn), ahora)}
-                </p>
-              </div>
-            </li>
-          );
-        })}
+        {visibles.map(({ r, t, estado, cuando }) => (
+          <li key={claveRecordatorio(r)} className="flex items-center gap-3 py-2 first:pt-0 last:pb-0">
+            <span
+              className={`inline-flex w-[104px] shrink-0 items-center justify-center gap-1 rounded-full px-2 py-0.5 text-[11.5px] font-semibold ring-1 ${CHIP[estado].clase}`}
+            >
+              <span aria-hidden>{CHIP[estado].icono}</span> {estado}
+            </span>
+            <div className="min-w-0 flex-1">
+              <p className={`truncate text-[13px] font-medium ${estado === "omitido" ? "text-slate-500" : "text-slate-800"}`}>
+                {t.paciente}
+                <span className="font-normal text-slate-500"> · {tratamientoCorto(t.tratamientoId)}</span>
+                {t.origen === "bot" && (
+                  <span className="ml-1.5 rounded-full bg-amber-100 px-1.5 py-px align-[1px] text-[10px] font-semibold text-amber-800">
+                    ✨ por el asistente
+                  </span>
+                )}
+              </p>
+              <p className="truncate text-[12px] text-slate-500">
+                Aviso {r.tipo === "24h" ? "24 h" : "2 h"} antes ·{" "}
+                {estado === "enviado"
+                  ? `enviado ${cuando}`
+                  : estado === "programado"
+                    ? `sale ${cuando}`
+                    : "turno reservado con menos anticipación"}
+              </p>
+            </div>
+          </li>
+        ))}
       </ul>
       {resto > 0 && (
         <p className="mt-2 text-[12px] text-slate-400">

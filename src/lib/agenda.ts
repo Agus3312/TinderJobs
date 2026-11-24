@@ -173,30 +173,38 @@ export function cuandoAmigable(inicio: Date, referencia: Date): string {
   if (dias === 0) return `hoy a las ${hora}`;
   if (dias === 1) return `mañana ${hora}`;
   if (dias === -1) return `ayer a las ${hora}`;
-  const d = aArt(ini);
-  return `el ${DIAS_ES[d.getUTCDay()]} ${d.getUTCDate()} a las ${hora}`;
+  return fechaAmigable(inicio);
 }
+
+/** "el miércoles 25 a las 16:30" (hora de Argentina). */
+export function fechaAmigable(d: Date): string {
+  const ms = d.getTime();
+  const a = aArt(ms);
+  return `el ${DIAS_ES[a.getUTCDay()]} ${a.getUTCDate()} a las ${fmtHora(ms)}`;
+}
+
+/** Texto del recordatorio de `t`, con la fecha expresada respecto de `referencia` (cuando se envía). */
+export function textoRecordatorio(t: Turno, cfg: ClinicaConfig, tipo: "24h" | "2h", referencia: Date): string {
+  const trat = cfg.tratamientos.find((x) => x.id === t.tratamientoId)?.nombre ?? "tu tratamiento";
+  const nombre = t.paciente.trim().split(/\s+/)[0];
+  const cuando = cuandoAmigable(new Date(t.inicio), referencia);
+  return tipo === "24h"
+    ? `Hola ${nombre} 👋 te recordamos tu turno de ${trat} ${cuando} en *${cfg.nombre}*. Respondé *SÍ* para confirmar o avisanos si necesitás cambiarlo.`
+    : `Hola ${nombre} 😊 te esperamos ${cuando} (en dos horas) para tu ${trat} en *${cfg.nombre}*, ${cfg.direccion}. ¡Nos vemos!`;
+}
+
+/** Identificador estable de un recordatorio (cambia si el turno se reprograma). */
+export const claveRecordatorio = (r: Pick<Recordatorio, "turnoId" | "tipo" | "enviarEn">) =>
+  `${r.turnoId}-${r.tipo}-${r.enviarEn}`;
 
 export function recordatoriosPara(turnos: Turno[], cfg: ClinicaConfig, ahora: Date): Recordatorio[] {
   const out: Recordatorio[] = [];
   for (const t of turnos) {
     if (t.estado === "cancelado") continue;
     const ini = new Date(t.inicio).getTime();
-    const trat = cfg.tratamientos.find((x) => x.id === t.tratamientoId)?.nombre ?? "tu tratamiento";
-    const nombre = t.paciente.trim().split(/\s+/)[0];
-    const defs: { tipo: "24h" | "2h"; antes: number; texto: (cuando: string) => string }[] = [
-      {
-        tipo: "24h",
-        antes: DIA,
-        texto: (cuando) =>
-          `Hola ${nombre} 👋 te recordamos tu turno de ${trat} ${cuando} en *${cfg.nombre}*. Respondé *SÍ* para confirmar o avisanos si necesitás cambiarlo.`,
-      },
-      {
-        tipo: "2h",
-        antes: 2 * 3600_000,
-        texto: (cuando) =>
-          `Hola ${nombre} 😊 te esperamos ${cuando} (en dos horas) para tu ${trat} en *${cfg.nombre}*, ${cfg.direccion}. ¡Nos vemos!`,
-      },
+    const defs: { tipo: "24h" | "2h"; antes: number }[] = [
+      { tipo: "24h", antes: DIA },
+      { tipo: "2h", antes: 2 * 3600_000 },
     ];
     for (const d of defs) {
       const enviarEn = ini - d.antes;
@@ -204,7 +212,7 @@ export function recordatoriosPara(turnos: Turno[], cfg: ClinicaConfig, ahora: Da
         turnoId: t.id,
         tipo: d.tipo,
         enviarEn: new Date(enviarEn).toISOString(),
-        texto: d.texto(cuandoAmigable(new Date(ini), new Date(enviarEn))),
+        texto: textoRecordatorio(t, cfg, d.tipo, new Date(enviarEn)),
         enviado: enviarEn <= ahora.getTime(),
       });
     }
@@ -214,11 +222,13 @@ export function recordatoriosPara(turnos: Turno[], cfg: ClinicaConfig, ahora: Da
 
 /**
  * Recordatorios que se "envían" al pasar el tiempo de `antes` a `despues`: los que no
- * estaban enviados y ahora sí, sólo de turnos agendados por el bot y no cancelados.
- * Ordenados por `enviarEn`.
+ * estaban enviados y ahora sí, sólo de turnos agendados por el bot, no cancelados y que
+ * todavía no ocurrieron en `despues`. Ordenados por `enviarEn`.
  */
 export function recordatoriosNuevos(turnos: Turno[], cfg: ClinicaConfig, antes: Date, despues: Date): Recordatorio[] {
-  const delBot = turnos.filter((t) => t.origen === "bot" && t.estado !== "cancelado");
+  const delBot = turnos.filter(
+    (t) => t.origen === "bot" && t.estado !== "cancelado" && new Date(t.inicio).getTime() > despues.getTime(),
+  );
   const yaEnviados = new Set(
     recordatoriosPara(delBot, cfg, antes)
       .filter((r) => r.enviado)
@@ -294,3 +304,23 @@ export function diasDeAtencion(ahora: Date, cfg: ClinicaConfig, n = 5): number[]
 
 /** Epoch (ms) de las 00:00 hora de Argentina del día que contiene `ms`. */
 export const inicioDelDiaArt = inicioDeDia;
+
+/**
+ * Al agendar (o reprogramar) un turno del bot con menos de 24 h de anticipación, el aviso
+ * de 24 h ya "venció": se manda en ese momento, con el texto relativo a `ahora`. Si faltan
+ * menos de 2 h no se manda nada (la persona acaba de reservar). `enviarEn` conserva el
+ * horario programado original, para que `claveRecordatorio` coincida con `recordatoriosPara`.
+ */
+export function recordatoriosAlAgendar(antes: Turno[], despues: Turno[], cfg: ClinicaConfig, ahora: Date): Recordatorio[] {
+  const previo = new Map(antes.map((t) => [t.id, t]));
+  const out: Recordatorio[] = [];
+  for (const t of despues) {
+    if (t.origen !== "bot" || t.estado === "cancelado") continue;
+    const p = previo.get(t.id);
+    if (p && p.inicio === t.inicio && p.estado !== "cancelado") continue; // sin cambios
+    if (new Date(t.inicio).getTime() <= ahora.getTime()) continue;
+    const [r24, r2] = recordatoriosPara([t], cfg, ahora);
+    if (r24.enviado && !r2.enviado) out.push({ ...r24, texto: textoRecordatorio(t, cfg, "24h", ahora) });
+  }
+  return out;
+}

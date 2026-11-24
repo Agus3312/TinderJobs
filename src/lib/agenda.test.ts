@@ -2,8 +2,11 @@ import { describe, it, expect } from "vitest";
 import { clinica } from "@/config/clinica";
 import {
   ahoraInicialDemo,
+  claveRecordatorio,
   cuandoAmigable,
   diasDeAtencion,
+  fechaAmigable,
+  recordatoriosAlAgendar,
   recordatoriosNuevos,
   siguienteApertura,
   slotsLibres,
@@ -288,10 +291,10 @@ describe("turnosDePaciente", () => {
 });
 
 describe("turnosSemilla", () => {
-  it("genera ~10 turnos válidos, futuros, sin superposición, origen semilla", () => {
+  it("genera ~2 turnos por día durante 10 días de atención: válidos, futuros, sin superposición", () => {
     const s = turnosSemilla(ahora);
-    expect(s.length).toBeGreaterThanOrEqual(8);
-    expect(s.length).toBeLessThanOrEqual(12);
+    expect(s.length).toBeGreaterThanOrEqual(18);
+    expect(s.length).toBeLessThanOrEqual(20);
     for (const t of s) {
       expect(t.origen).toBe("semilla");
       expect(t.estado).not.toBe("cancelado");
@@ -303,6 +306,24 @@ describe("turnosSemilla", () => {
       expect(reprogramar(otros.concat(t), clinica, ahora, t.id, t.inicio).ok).toBe(true);
     }
     expect(new Set(s.map((t) => t.id)).size).toBe(s.length);
+  });
+
+  it("incluye sábados a la mañana y cubre los próximos días de atención", () => {
+    const s = turnosSemilla(ahora);
+    const diaArt = (t: Turno) => new Date(new Date(t.inicio).getTime() - 3 * 3600_000);
+    const sabados = s.filter((t) => diaArt(t).getUTCDay() === 6);
+    expect(sabados.length).toBeGreaterThanOrEqual(2);
+    for (const t of sabados) expect(diaArt(t).getUTCHours()).toBeLessThan(12);
+    expect(s.some((t) => diaArt(t).getUTCDay() === 0)).toBe(false);
+    // 10 días de atención desde el martes 24: hasta el viernes 4/12, cada uno con algún turno
+    const dias = new Set(s.map((t) => diaArt(t).toISOString().slice(0, 10)));
+    expect(dias.size).toBe(10);
+    expect([...dias].sort().at(-1)).toBe("2026-12-04");
+  });
+
+  it("si se carga a la tarde, omite los de hoy que ya pasaron", () => {
+    const tarde = new Date("2026-11-24T17:30:00-03:00");
+    for (const t of turnosSemilla(tarde)) expect(new Date(t.inicio).getTime()).toBeGreaterThan(tarde.getTime());
   });
 });
 
@@ -377,9 +398,14 @@ describe("recordatoriosNuevos", () => {
 
   it("no repite los que ya estaban enviados y ordena por enviarEn", () => {
     const b1 = bot({ id: "b1", inicio: iso("2026-11-25T10:00:00-03:00") }); // 24h ya enviado (mar 10:00 == antes); 2h: mié 08:00
-    const b2 = bot({ id: "b2", inicio: iso("2026-11-24T18:00:00-03:00") }); // 24h ya enviado; 2h: mar 16:00
-    const r = recordatoriosNuevos([b1, b2], clinica, art("2026-11-24T10:00:00"), art("2026-11-25T09:00:00"));
-    expect(r.map((x) => `${x.turnoId}:${x.tipo}`)).toEqual(["b2:2h", "b1:2h"]);
+    const b3 = bot({ id: "b3", inicio: iso("2026-11-25T16:30:00-03:00") }); // 24h: mar 16:30; 2h: mié 14:30 (todavía no)
+    const r = recordatoriosNuevos([b1, b3], clinica, art("2026-11-24T10:00:00"), art("2026-11-25T09:00:00"));
+    expect(r.map((x) => `${x.turnoId}:${x.tipo}`)).toEqual(["b3:24h", "b1:2h"]);
+  });
+
+  it("omite turnos que ya ocurrieron al llegar a despues (nunca 'en dos horas' de un turno pasado)", () => {
+    const b2 = bot({ id: "b2", inicio: iso("2026-11-24T18:00:00-03:00") }); // 2h: mar 16:00, pero el turno es antes de mié 09:00
+    expect(recordatoriosNuevos([b2], clinica, art("2026-11-24T10:00:00"), art("2026-11-25T09:00:00"))).toEqual([]);
   });
 
   it("ignora turnos del bot cancelados", () => {
@@ -412,5 +438,48 @@ describe("diasDeAtencion", () => {
     expect(d.map((ms) => new Date(ms).toISOString())).toEqual(
       ["2026-11-26", "2026-11-27", "2026-11-28", "2026-11-30", "2026-12-01"].map((x) => art(`${x}T00:00:00`).toISOString()),
     );
+  });
+});
+
+describe("fechaAmigable", () => {
+  it("día de la semana, número y hora en Argentina", () => {
+    expect(fechaAmigable(new Date("2026-11-25T19:30:00Z"))).toBe("el miércoles 25 a las 16:30");
+  });
+});
+
+describe("recordatoriosAlAgendar", () => {
+  const art = (s: string) => new Date(`${s}-03:00`);
+  const ahoraA = art("2026-11-24T15:00:00");
+  const bot = (over: Partial<Turno> = {}) => turno({ origen: "bot", paciente: "Ana López", tratamientoId: "limpieza", ...over });
+
+  it("turno nuevo con menos de 24 h: manda el aviso de 24 h ya, con texto relativo a ahora", () => {
+    const t = bot({ id: "n", inicio: iso("2026-11-25T10:00:00-03:00") });
+    const r = recordatoriosAlAgendar([], [t], clinica, ahoraA);
+    expect(r).toHaveLength(1);
+    expect(r[0].tipo).toBe("24h");
+    expect(r[0].texto).toContain("mañana 10:00");
+    // la clave coincide con la de recordatoriosPara (enviarEn programado original)
+    const [r24] = recordatoriosPara([t], clinica, ahoraA);
+    expect(claveRecordatorio(r[0])).toBe(claveRecordatorio(r24));
+  });
+
+  it("turno para hoy más tarde (más de 2 h): el texto dice hoy", () => {
+    const t = bot({ id: "n", inicio: iso("2026-11-24T18:00:00-03:00") });
+    expect(recordatoriosAlAgendar([], [t], clinica, ahoraA)[0].texto).toContain("hoy a las 18:00");
+  });
+
+  it("con menos de 2 h, con más de 24 h, semillas o sin cambios: nada", () => {
+    const pronto = bot({ id: "p", inicio: iso("2026-11-24T16:30:00-03:00") });
+    const lejos = bot({ id: "l", inicio: iso("2026-11-26T16:30:00-03:00") });
+    const semilla = turno({ id: "s", inicio: iso("2026-11-25T10:00:00-03:00") });
+    expect(recordatoriosAlAgendar([], [pronto, lejos, semilla], clinica, ahoraA)).toEqual([]);
+    const igual = bot({ id: "i", inicio: iso("2026-11-25T10:00:00-03:00") });
+    expect(recordatoriosAlAgendar([igual], [igual], clinica, ahoraA)).toEqual([]);
+  });
+
+  it("reprogramado a menos de 24 h: se manda", () => {
+    const antes = bot({ id: "r", inicio: iso("2026-11-27T10:00:00-03:00") });
+    const despues = { ...antes, inicio: iso("2026-11-25T11:00:00-03:00") };
+    expect(recordatoriosAlAgendar([antes], [despues], clinica, ahoraA).map((x) => x.turnoId)).toEqual(["r"]);
   });
 });

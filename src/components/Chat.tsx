@@ -64,6 +64,8 @@ type Props = {
   reloj: () => Date;
   /** Ejecuta una tool contra la agenda local y devuelve su output. */
   onHerramienta: (nombre: string, input: unknown) => unknown;
+  /** El asistente terminó de responder (no queda ninguna ronda de herramientas en curso). */
+  onRespuestaTerminada?: () => void;
 };
 
 type Metadatos = { at?: string };
@@ -82,6 +84,7 @@ export default function Chat({
   obtenerAvisos,
   reloj,
   onHerramienta,
+  onRespuestaTerminada,
 }: Props) {
   const [transport] = useState(
     () =>
@@ -122,6 +125,16 @@ export default function Chat({
   });
 
   const ocupado = status === "submitted" || status === "streaming";
+
+  // Avisar cuando la respuesta terminó del todo (no entre rondas de herramientas).
+  const terminadaRef = useRef(onRespuestaTerminada);
+  useEffect(() => {
+    terminadaRef.current = onRespuestaTerminada;
+  });
+  const esperaReenvio = lastAssistantMessageIsCompleteWithToolCalls({ messages });
+  useEffect(() => {
+    if (!ocupado && !esperaReenvio) terminadaRef.current?.();
+  }, [ocupado, esperaReenvio]);
   const ultimo = messages.at(-1);
   const herramientaEnCurso =
     ocupado && ultimo?.role === "assistant" ? herramientaPendiente(ultimo) : undefined;

@@ -2,8 +2,17 @@
 
 import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { clinica } from "@/config/clinica";
-import { ahoraInicialDemo, recordatoriosNuevos, siguienteApertura, type Turno } from "@/lib/agenda";
+import {
+  ahoraInicialDemo,
+  claveRecordatorio,
+  recordatoriosAlAgendar,
+  recordatoriosNuevos,
+  siguienteApertura,
+  type Recordatorio,
+  type Turno,
+} from "@/lib/agenda";
 import { ejecutarHerramienta } from "@/lib/ejecutarHerramienta";
+import { formatearAviso } from "@/lib/prompt";
 import { turnosSemilla } from "@/lib/semilla";
 import Chat, { ChatCargando } from "./Chat";
 import PanelClinica from "./panel/PanelClinica";
@@ -54,12 +63,17 @@ function DemoCliente() {
   const [turnos, setTurnos] = useState<Turno[]>(inicial.turnos);
   const [derivaciones, setDerivaciones] = useState<string[]>([]);
   const [mensajesSistema, setMensajesSistema] = useState<MensajeSistema[]>(inicial.mensajesSistema);
+  /** Recordatorios de turnos del bot que realmente se mandaron: clave -> hora de envío (ISO). */
+  const [enviados, setEnviados] = useState<Record<string, string>>({});
 
   // Refs para leer el estado más reciente desde callbacks del chat (varias tool calls
   // pueden llegar en el mismo stream, antes de que React vuelva a renderizar).
   const turnosRef = useRef(turnos);
   const ahoraRef = useRef(ahora);
   const mensajesSistemaRef = useRef(mensajesSistema);
+  // Recordatorios ya marcados como enviados que esperan a que el chat termine de responder
+  // para aparecer (así no quedan antes de la confirmación del turno).
+  const pendientesRef = useRef<{ id: string; texto: string }[]>([]);
   // Momento real en que se fijó `ahora`: el reloj de la demo avanza desde ahí.
   const fijadoEnRef = useRef(inicial.fijadoEn);
 
@@ -85,20 +99,54 @@ function DemoCliente() {
     setTurnos(nuevos);
   }, []);
 
+  const agregarMensajes = useCallback((nuevos: MensajeSistema[]) => {
+    const ids = new Set(mensajesSistemaRef.current.map((m) => m.id));
+    const sumar = nuevos.filter((m) => !ids.has(m.id));
+    if (sumar.length === 0) return;
+    const lista = [...mensajesSistemaRef.current, ...sumar];
+    mensajesSistemaRef.current = lista;
+    setMensajesSistema(lista);
+  }, []);
+
+  const marcarEnviados = useCallback((recs: Recordatorio[], at: (r: Recordatorio) => string) => {
+    if (recs.length === 0) return;
+    setEnviados((prev) => {
+      const sig = { ...prev };
+      for (const r of recs) sig[claveRecordatorio(r)] ??= at(r);
+      return sig;
+    });
+  }, []);
+
+  /** Publica en el chat los recordatorios pendientes, sellados un instante después de "ahora". */
+  const publicarPendientes = useCallback(() => {
+    if (pendientesRef.current.length === 0) return;
+    const at = new Date(reloj().getTime() + 1000).toISOString();
+    agregarMensajes(pendientesRef.current.map((p) => ({ ...p, at })));
+    pendientesRef.current = [];
+  }, [agregarMensajes, reloj]);
+
   const onHerramienta = useCallback(
     (nombre: string, input: unknown) => {
+      const previos = turnosRef.current;
       const r = ejecutarHerramienta(nombre, input, {
-        turnos: turnosRef.current,
+        turnos: previos,
         ahora: ahoraRef.current,
       });
-      if (r.turnos) actualizarTurnos(r.turnos);
+      if (r.turnos) {
+        actualizarTurnos(r.turnos);
+        // Turno del bot con menos de 24 h de anticipación: el aviso de 24 h sale ya.
+        const ahoraVirtual = reloj();
+        const recs = recordatoriosAlAgendar(previos, r.turnos, clinica, ahoraVirtual);
+        marcarEnviados(recs, () => ahoraVirtual.toISOString());
+        pendientesRef.current.push(...recs.map((x) => ({ id: `rec-${claveRecordatorio(x)}`, texto: x.texto })));
+      }
       if (r.derivacion) {
         const motivo = r.derivacion;
         setDerivaciones((prev) => [...prev, motivo]);
       }
       return r.output;
     },
-    [actualizarTurnos],
+    [actualizarTurnos, marcarEnviados, reloj],
   );
 
   const obtenerAhora = useCallback(() => ahoraRef.current, []);
@@ -109,7 +157,7 @@ function DemoCliente() {
       mensajesSistemaRef.current
         .filter((m) => m.id !== "bienvenida")
         .slice(-MAX_AVISOS)
-        .map((m) => m.texto.slice(0, MAX_CHARS_AVISO)),
+        .map((m) => formatearAviso(m.texto, new Date(m.at)).slice(0, MAX_CHARS_AVISO)),
     [],
   );
 
@@ -118,23 +166,18 @@ function DemoCliente() {
    * burbujas del bot) los recordatorios de turnos del bot que se envían en ese intervalo.
    */
   const simularDia = useCallback(() => {
+    publicarPendientes();
     const antes = reloj();
     const despues = siguienteApertura(antes, clinica);
-    const nuevos = recordatoriosNuevos(turnosRef.current, clinica, antes, despues).map(
-      (r): MensajeSistema => ({ id: `rec-${r.turnoId}-${r.tipo}`, texto: r.texto, at: r.enviarEn }),
-    );
+    const recs = recordatoriosNuevos(turnosRef.current, clinica, antes, despues);
     // Refs primero: el reloj y los callbacks del chat ya ven el nuevo día.
     ahoraRef.current = despues;
     fijadoEnRef.current = Date.now();
     setAhora(despues);
-    if (nuevos.length > 0) {
-      const ids = new Set(mensajesSistemaRef.current.map((m) => m.id));
-      const lista = [...mensajesSistemaRef.current, ...nuevos.filter((m) => !ids.has(m.id))];
-      mensajesSistemaRef.current = lista;
-      setMensajesSistema(lista);
-    }
-    return nuevos.length;
-  }, [reloj]);
+    marcarEnviados(recs, (r) => r.enviarEn);
+    agregarMensajes(recs.map((r) => ({ id: `rec-${claveRecordatorio(r)}`, texto: r.texto, at: r.enviarEn })));
+    return recs.length;
+  }, [agregarMensajes, marcarEnviados, publicarPendientes, reloj]);
 
   return (
     <main className="flex h-dvh w-full overflow-hidden">
@@ -146,6 +189,7 @@ function DemoCliente() {
         obtenerAvisos={obtenerAvisos}
         reloj={reloj}
         onHerramienta={onHerramienta}
+        onRespuestaTerminada={publicarPendientes}
       />
       <PanelClinica
         className="hidden w-[46%] max-w-[820px] shrink-0 md:flex xl:w-[52%]"
@@ -153,6 +197,7 @@ function DemoCliente() {
         ahora={ahora}
         reloj={reloj}
         derivaciones={derivaciones}
+        enviados={enviados}
         onSimularDia={simularDia}
       />
     </main>
