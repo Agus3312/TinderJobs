@@ -1,26 +1,52 @@
 @import "tailwindcss";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
-
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --font-sans: var(--font-geist-sans), ui-sans-serif, system-ui, "Segoe UI", Helvetica, Arial, sans-serif;
+  --animate-entrada: entrada 180ms ease-out both;
+  --animate-punto: punto 1.2s ease-in-out infinite;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+@keyframes entrada {
+  from {
+    opacity: 0;
+    transform: translateY(6px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: none;
   }
 }
 
+@keyframes punto {
+  0%,
+  60%,
+  100% {
+    transform: translateY(0);
+    opacity: 0.45;
+  }
+  30% {
+    transform: translateY(-4px);
+    opacity: 1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-entrada,
+  .animate-punto {
+    animation: none;
+  }
+}
+
+html,
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background: #efeae2;
+  color: #111b21;
+  font-family: var(--font-sans);
+}
+
+/* Fondo del chat estilo WhatsApp: patrón de íconos muy sutil (dientes, brillos, corazones). */
+.fondo-chat {
+  background-color: #efeae2;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160' viewBox='0 0 160 160'%3E%3Cg fill='none' stroke='%23000' stroke-opacity='.055' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M22 18c-6 0-9 5-8 11 1 5 3 8 3 14 0 4 1 9 4 9 3 0 3-7 6-7s3 7 6 7c3 0 4-5 4-9 0-6 2-9 3-14 1-6-2-11-8-11-3 0-4 2-5 2s-2-2-5-2z'/%3E%3Cpath d='M112 22v14M105 29h14M108 25l8 8M116 25l-8 8'/%3E%3Cpath d='M70 92c-4-5-12-1-9 6 2 4 9 8 9 8s7-4 9-8c3-7-5-11-9-6z'/%3E%3Ccircle cx='128' cy='108' r='7'/%3E%3Cpath d='M30 120l4 8 9 1-6 6 2 9-9-4-8 4 2-9-7-6 9-1z'/%3E%3Cpath d='M86 140c4-4 10-4 14 0M84 30c3 3 3 8 0 11M140 60l6 6m0-6-6 6M46 72l3 3m0-3-3 3'/%3E%3C/g%3E%3C/svg%3E");
+  background-size: 160px 160px;
 }
