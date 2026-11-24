@@ -250,12 +250,15 @@ export default function Chat({
                   enviar(texto);
                 }
               }}
-              disabled={ocupado}
+              // readOnly (no disabled) mientras responde: el input conserva el foco y el teclado
+              // del celular no se cierra ni salta el layout.
+              readOnly={ocupado}
+              aria-busy={ocupado}
               maxLength={MAX_CHARS}
               rows={1}
               placeholder={ocupado ? "Respondiendo…" : "Escribí un mensaje"}
               aria-label="Mensaje"
-              className="max-h-32 w-full resize-none bg-transparent text-[15px] leading-6 text-[#111b21] outline-none [field-sizing:content] placeholder:text-[#8696a0] disabled:cursor-not-allowed"
+              className="max-h-32 w-full resize-none bg-transparent text-[15px] leading-6 text-[#111b21] outline-none [field-sizing:content] placeholder:text-[#8696a0] read-only:cursor-progress"
             />
             {texto.length > MAX_CHARS - 100 && (
               <span className="ml-2 shrink-0 self-center text-[11px] tabular-nums text-[#8696a0]">

@@ -13,7 +13,7 @@ Todo corre en el navegador: los turnos viven en memoria y se reinician al recarg
 
 ## Cómo correrlo
 
-Requisitos: Node.js 20 o superior.
+Requisitos: Node.js 20.9 o superior.
 
 ```bash
 npm install
@@ -46,7 +46,9 @@ AI_GATEWAY_API_KEY=tu_clave
 
 Sin la clave la demo igual abre. El chat muestra el aviso "La demo no está conectada a la IA todavía" y el panel funciona igual.
 
-Deployada en Vercel no hace falta la clave: el AI Gateway se autentica solo con el token OIDC del proyecto. Igual podés cargarla si preferís.
+Deployada en Vercel no hace falta la clave: el AI Gateway se autentica solo con el token OIDC del proyecto (`VERCEL_OIDC_TOKEN`). Igual podés cargarla si preferís.
+
+Alternativa en local sin crear una clave: con el proyecto ya vinculado a Vercel (`vercel link`), corré `vercel env pull .env.local`. Eso baja un `VERCEL_OIDC_TOKEN` temporal (dura unas horas; si vence, volvé a correr el comando).
 
 ## Cómo personalizarla para cada clínica
 
@@ -55,7 +57,7 @@ Todo lo de la clínica está en **`src/config/clinica.ts`**:
 | Campo | Para qué |
 | --- | --- |
 | `nombre` | Nombre en el chat, el panel, el título de la página y el prompt de la IA |
-| `colorPrimario` | Color de la marca (hex). Se usa en el encabezado del chat, los botones, las pestañas y los acentos del panel |
+| `colorPrimario` | Color de la marca (hex). Pinta el encabezado del chat y los acentos principales: botones, pestañas, el día de hoy en la agenda y el contador del panel. Los colores de categoría de la agenda (odontología, estética, asistente) son fijos |
 | `logoEmoji` | "Foto de perfil" del chat (por ejemplo 🦷, ✨, 💆) |
 | `direccion`, `telefono` | Los usa la IA para responder y van en los recordatorios |
 | `horario` | Días (`1` = lunes … `6` = sábado), hora de apertura y cierre, y cierre especial de los sábados |

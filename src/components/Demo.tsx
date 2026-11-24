@@ -155,10 +155,9 @@ function DemoCliente() {
     if (pendientesRef.current.length === 0) return;
     const at = new Date(reloj().getTime() + 1000).toISOString();
     agregarMensajes(pendientesRef.current.map((p) => ({ ...p, at })));
-    // El recordatorio también aparece en el panel: avisamos en la pestaña "Clínica".
-    avisarNovedad("clinica");
+    // Sin aviso en la pestaña "Clínica": viene de un turno recién agendado, que ya se contó.
     pendientesRef.current = [];
-  }, [agregarMensajes, avisarNovedad, reloj]);
+  }, [agregarMensajes, reloj]);
 
   const onHerramienta = useCallback(
     (nombre: string, input: unknown) => {
@@ -274,8 +273,7 @@ function Pestanas({
   return (
     <nav
       aria-label="Secciones de la demo"
-      // Oculta mientras se escribe (teclado abierto), como en las apps de mensajería.
-      className="z-20 shrink-0 border-t border-black/[.08] bg-white pb-[env(safe-area-inset-bottom)] md:hidden [main:has(textarea:focus)_&]:hidden"
+      className="z-20 shrink-0 border-t border-black/[.08] bg-white pb-[env(safe-area-inset-bottom)] md:hidden"
     >
       <ul role="tablist" className="mx-auto grid max-w-md grid-cols-2">
         {PESTANAS.map(({ id, etiqueta, icono: Icono }) => {
