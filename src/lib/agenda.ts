@@ -91,6 +91,105 @@ export function slotsLibres(
   return out;
 }
 
+export type Franja = "mañana" | "tarde";
+/** Franjas en minutos desde las 00:00 (hora de Argentina): mañana antes de las 13, tarde desde las 13. */
+const FRANJAS: Record<Franja, [number, number]> = { mañana: [0, 13 * 60], tarde: [13 * 60, 24 * 60] };
+/** Hasta cuántos días adelante se busca lugar. */
+const DIAS_BUSQUEDA = 14;
+/** Máximo de días a futuro que se puede pedir con `dia`. */
+const DIAS_MAX_PEDIDO = 60;
+const POR_DIA_SIN_FECHA = 2;
+const DIAS_SIN_FECHA = 3;
+const MAX_ALTERNATIVAS = 3;
+
+/** Slots libres (epoch ms) del día que empieza en `base` (00:00 ART), posteriores a `ahora` y dentro de la franja. */
+function slotsDelDia(turnos: Turno[], cfg: ClinicaConfig, ahora: Date, dur: number, base: number, franja?: Franja): number[] {
+  const v = ventanaDelDia(cfg, diaSemana(base));
+  if (!v) return [];
+  const [fDesde, fHasta] = franja ? FRANJAS[franja] : [0, 24 * 60];
+  const out: number[] = [];
+  for (let m = v.desde; m + dur <= v.hasta; m += PASO_MIN) {
+    if (m < fDesde || m >= fHasta) continue;
+    const ini = base + m * MIN;
+    if (ini <= ahora.getTime() || seSuperpone(turnos, cfg, ini, dur)) continue;
+    out.push(ini);
+  }
+  return out;
+}
+
+/** Elige `k` elementos repartidos a lo largo de `xs` (centrados en k tramos iguales), en orden. */
+function repartir<T>(xs: T[], k: number): T[] {
+  if (xs.length <= k) return xs;
+  return Array.from({ length: k }, (_, i) => xs[Math.floor(((i + 0.5) * xs.length) / k)]);
+}
+
+/** "AAAA-MM-DD" -> epoch ms de las 00:00 ART de ese día, o null si no es una fecha válida. */
+function parsearDia(dia: string): number | null {
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(dia.trim());
+  if (!m) return null;
+  const [y, mes, d] = [Number(m[1]), Number(m[2]), Number(m[3])];
+  const utc = Date.UTC(y, mes - 1, d);
+  const f = new Date(utc);
+  if (f.getUTCFullYear() !== y || f.getUTCMonth() !== mes - 1 || f.getUTCDate() !== d) return null;
+  return utc - OFFSET_MS;
+}
+
+export type Busqueda = {
+  /** Horarios para ofrecer (ISO), en orden. */
+  horarios: string[];
+  /** Si se pidió un día y no hay lugar: horarios del día con lugar más cercano. */
+  alternativas: string[];
+  /** Por qué no hay horarios el día pedido. */
+  motivo?: "cerrado" | "sin_lugar";
+};
+
+/**
+ * Horarios para ofrecer de un tratamiento. Con `dia` ("AAAA-MM-DD", hora de Argentina): hasta 6
+ * horarios libres de ese día, repartidos a lo largo del día (y si no hay, alternativas del día con
+ * lugar más cercano). Sin `dia`: 2 por día en los próximos 3 días con lugar. `franja` filtra
+ * mañana (antes de las 13) o tarde (desde las 13).
+ */
+export function buscarHorarios(
+  turnos: Turno[],
+  cfg: ClinicaConfig,
+  ahora: Date,
+  tratamientoId: string,
+  opts: { dia?: string; franja?: Franja } = {},
+): Resultado<Busqueda> {
+  const dur = duracionDe(cfg, tratamientoId);
+  if (dur === undefined) return { ok: false, error: "Tratamiento inexistente" };
+  const { franja } = opts;
+  if (franja !== undefined && !(franja in FRANJAS)) return { ok: false, error: "Franja inválida: usá mañana o tarde" };
+  const hoy = inicioDeDia(ahora.getTime());
+  const iso = (ms: number) => new Date(ms).toISOString();
+
+  if (opts.dia !== undefined) {
+    const base = parsearDia(opts.dia);
+    if (base === null) return { ok: false, error: "Fecha inválida: usá el formato AAAA-MM-DD" };
+    if (base < hoy) return { ok: false, error: "Ese día ya pasó" };
+    if (base > hoy + DIAS_MAX_PEDIDO * DIA) return { ok: false, error: "Todavía no hay agenda para esa fecha" };
+    const slots = slotsDelDia(turnos, cfg, ahora, dur, base, franja);
+    if (slots.length > 0) return { ok: true, valor: { horarios: repartir(slots, MAX_SLOTS).map(iso), alternativas: [] } };
+    const motivo = ventanaDelDia(cfg, diaSemana(base)) ? "sin_lugar" : "cerrado";
+    for (let i = 1; i <= DIAS_BUSQUEDA; i++) {
+      const otros = slotsDelDia(turnos, cfg, ahora, dur, base + i * DIA, franja);
+      if (otros.length > 0) {
+        return { ok: true, valor: { horarios: [], alternativas: repartir(otros, MAX_ALTERNATIVAS).map(iso), motivo } };
+      }
+    }
+    return { ok: true, valor: { horarios: [], alternativas: [], motivo } };
+  }
+
+  const horarios: string[] = [];
+  for (let i = 0, dias = 0; i < DIAS_BUSQUEDA && dias < DIAS_SIN_FECHA; i++) {
+    const slots = slotsDelDia(turnos, cfg, ahora, dur, hoy + i * DIA, franja);
+    if (slots.length === 0) continue;
+    dias++;
+    horarios.push(...repartir(slots, POR_DIA_SIN_FECHA).map(iso));
+  }
+  return { ok: true, valor: { horarios, alternativas: [] } };
+}
+
 function validar(
   turnos: Turno[],
   cfg: ClinicaConfig,
@@ -286,6 +385,24 @@ export function siguienteApertura(ahora: Date, cfg: ClinicaConfig): Date {
     if (v) return new Date(base + v.desde * MIN);
   }
   return new Date(hoy + DIA + hhmm(cfg.horario.desde) * MIN); // sin días de atención: no debería pasar
+}
+
+/**
+ * "Adelantar el reloj": al próximo recordatorio pendiente de un turno del bot, si sale antes de
+ * que termine el próximo día de atención; si no, a la apertura del próximo día de atención.
+ * Así cada salto muestra un recordatorio (24 h y después 2 h) con su hora real de envío.
+ */
+export function proximoSalto(turnos: Turno[], cfg: ClinicaConfig, ahora: Date): Date {
+  const apertura = siguienteApertura(ahora, cfg);
+  const limite = inicioDeDia(apertura.getTime()) + DIA;
+  const delBot = turnos.filter(
+    (t) => t.origen === "bot" && t.estado !== "cancelado" && new Date(t.inicio).getTime() > ahora.getTime(),
+  );
+  let proximo = Infinity;
+  for (const r of recordatoriosPara(delBot, cfg, ahora)) {
+    if (!r.enviado) proximo = Math.min(proximo, new Date(r.enviarEn).getTime());
+  }
+  return proximo < limite ? new Date(proximo) : apertura;
 }
 
 /**

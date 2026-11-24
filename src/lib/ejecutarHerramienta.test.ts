@@ -22,13 +22,51 @@ describe("fechaLegible", () => {
 });
 
 describe("ejecutarHerramienta", () => {
-  it("ver_disponibilidad devuelve horarios ISO y legibles", () => {
+  type Disp = { horarios: { inicio: string; cuando: string }[]; aviso?: string; alternativas?: { inicio: string; cuando: string }[] };
+
+  it("ver_disponibilidad sin día: cada horario con su ISO y su versión legible, en varios días", () => {
     const r = ejecutarHerramienta("ver_disponibilidad", { tratamientoId: "limpieza" }, estado);
-    const out = r.output as { horarios: string[]; horariosEnHoraArgentina: string[] };
-    expect(out.horarios.length).toBeGreaterThan(0);
-    expect(out.horarios[0]).toBe("2026-11-23T15:30:00.000Z");
-    expect(out.horariosEnHoraArgentina[0]).toBe("lunes 23/11 12:30");
+    const out = r.output as Disp;
+    expect(out.horarios.length).toBe(6);
+    expect(out.horarios[0]).toEqual({ inicio: "2026-11-23T17:00:00.000Z", cuando: "lunes 23/11 14:00" });
+    expect(new Set(out.horarios.map((h) => h.cuando.split(" ")[1])).size).toBe(3);
+    expect(out.aviso).toBeUndefined();
     expect(r.turnos).toBeUndefined();
+  });
+
+  it("ver_disponibilidad con día y franja", () => {
+    const r = ejecutarHerramienta(
+      "ver_disponibilidad",
+      { tratamientoId: "limpieza", dia: "2026-11-26", franja: "tarde" },
+      estado,
+    );
+    const out = r.output as Disp;
+    expect(out.horarios.map((h) => h.cuando)).toEqual(
+      ["13:00", "14:00", "15:00", "16:00", "17:00", "18:00"].map((h) => `jueves 26/11 ${h}`),
+    );
+  });
+
+  it("ver_disponibilidad ignora dia/franja vacíos o null (el modelo a veces los manda así)", () => {
+    const r = ejecutarHerramienta("ver_disponibilidad", { tratamientoId: "limpieza", dia: null, franja: "" }, estado);
+    expect((r.output as Disp).horarios.length).toBe(6);
+  });
+
+  it("ver_disponibilidad un domingo: aviso y alternativas del día más cercano", () => {
+    const r = ejecutarHerramienta("ver_disponibilidad", { tratamientoId: "consulta", dia: "2026-11-29" }, estado);
+    const out = r.output as Disp;
+    expect(out.horarios).toEqual([]);
+    expect(out.aviso).toBe("La clínica no atiende ese día.");
+    expect(out.alternativas?.length).toBe(3);
+    for (const a of out.alternativas!) expect(a.cuando.startsWith("lunes 30/11")).toBe(true);
+  });
+
+  it("ver_disponibilidad con un día pasado o mal escrito devuelve error", () => {
+    expect(ejecutarHerramienta("ver_disponibilidad", { tratamientoId: "consulta", dia: "2026-11-20" }, estado).output).toEqual({
+      error: "Ese día ya pasó",
+    });
+    expect(
+      (ejecutarHerramienta("ver_disponibilidad", { tratamientoId: "consulta", dia: "jueves" }, estado).output as { error?: string }).error,
+    ).toBeDefined();
   });
 
   it("ver_disponibilidad con tratamiento inexistente devuelve error", () => {

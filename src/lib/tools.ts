@@ -5,11 +5,19 @@ import { z } from "zod";
 export const tools = {
   ver_disponibilidad: tool({
     description:
-      "Devuelve los próximos horarios libres para un tratamiento. Usala antes de ofrecer cualquier horario.",
+      "Devuelve horarios libres para un tratamiento. Usala antes de ofrecer cualquier horario. Con `dia`, devuelve horarios de ese día (si no hay lugar, `alternativas` del día más cercano); sin `dia`, opciones de los próximos días.",
     inputSchema: z.object({
       tratamientoId: z
         .string()
         .describe("ID del tratamiento, tal como figura en el catálogo de la clínica"),
+      dia: z
+        .string()
+        .optional()
+        .describe("Día pedido por la persona, AAAA-MM-DD en hora de Argentina (ver el calendario del prompt). Omitir si no pidió un día"),
+      franja: z
+        .enum(["mañana", "tarde"])
+        .optional()
+        .describe("'mañana' (antes de las 13) o 'tarde' (desde las 13), si la persona lo pidió"),
     }),
   }),
   agendar_turno: tool({
@@ -20,7 +28,7 @@ export const tools = {
       tratamientoId: z.string().describe("ID del tratamiento del catálogo"),
       inicio: z
         .string()
-        .describe("ISO exacto devuelto por ver_disponibilidad, sin modificar"),
+        .describe("Valor `inicio` (ISO) exacto devuelto por ver_disponibilidad, sin modificar"),
     }),
   }),
   reprogramar_turno: tool({
@@ -29,7 +37,7 @@ export const tools = {
       turnoId: z.string().describe("ID del turno a mover (de ver_mis_turnos)"),
       nuevoInicio: z
         .string()
-        .describe("ISO exacto del nuevo horario, devuelto por ver_disponibilidad"),
+        .describe("Valor `inicio` (ISO) exacto del nuevo horario, devuelto por ver_disponibilidad"),
     }),
   }),
   cancelar_turno: tool({

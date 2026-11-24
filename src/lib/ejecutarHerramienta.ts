@@ -1,10 +1,11 @@
 import { clinica as clinicaPorDefecto, type ClinicaConfig } from "@/config/clinica";
 import {
   agendar,
+  buscarHorarios,
   cancelar,
   reprogramar,
-  slotsLibres,
   turnosDePaciente,
+  type Franja,
   type Turno,
 } from "./agenda";
 
@@ -64,15 +65,19 @@ export function ejecutarHerramienta(
 
   switch (nombre) {
     case "ver_disponibilidad": {
-      const tratamientoId = texto(args.tratamientoId);
-      if (!cfg.tratamientos.some((t) => t.id === tratamientoId)) {
-        return { output: { error: "Tratamiento inexistente" } };
-      }
-      const horarios = slotsLibres(turnos, cfg, ahora, tratamientoId);
+      const dia = texto(args.dia).trim() || undefined;
+      const franja = (texto(args.franja).trim() || undefined) as Franja | undefined;
+      const r = buscarHorarios(turnos, cfg, ahora, texto(args.tratamientoId), { dia, franja });
+      if (!r.ok) return { output: { error: r.error } };
+      const { horarios, alternativas, motivo } = r.valor;
+      // Cada horario con su ISO (para pasarlo tal cual) y su versión en hora de Argentina.
+      const conHora = (xs: string[]) => xs.map((inicio) => ({ inicio, cuando: fechaLegible(inicio) }));
+      if (!motivo) return { output: { horarios: conHora(horarios) } };
       return {
         output: {
-          horarios,
-          horariosEnHoraArgentina: horarios.map(fechaLegible),
+          horarios: [],
+          aviso: motivo === "cerrado" ? "La clínica no atiende ese día." : "No quedan horarios libres ese día en esa franja.",
+          alternativas: conHora(alternativas),
         },
       };
     }

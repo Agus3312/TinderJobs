@@ -1,5 +1,5 @@
 import type { ClinicaConfig } from "@/config/clinica";
-import { fechaAmigable } from "@/lib/agenda";
+import { fechaAmigable, inicioDelDiaArt } from "@/lib/agenda";
 
 const TZ = "America/Argentina/Buenos_Aires";
 
@@ -47,6 +47,28 @@ function horarioEnTexto(h: ClinicaConfig["horario"]): string {
   return t + " (hora de Argentina). Domingos cerrado";
 }
 
+const OFFSET_MS = -3 * 3600_000; // Argentina: UTC-3 fijo
+const DIA_MS = 24 * 3600_000;
+const DIAS_CALENDARIO = 14;
+const RELATIVOS = ["hoy", "mañana", "pasado mañana"];
+
+/**
+ * Los próximos 14 días con su fecha "AAAA-MM-DD" (hora de Argentina), para que el modelo pase
+ * `dia` a ver_disponibilidad sin hacer cuentas: "- jueves 26/11 (pasado mañana): 2026-11-26".
+ */
+function calendario(cfg: ClinicaConfig, ahora: Date): string {
+  const hoy = inicioDelDiaArt(ahora.getTime());
+  const lineas: string[] = [];
+  for (let i = 0; i < DIAS_CALENDARIO; i++) {
+    const d = new Date(hoy + i * DIA_MS - OFFSET_MS); // 00:00 ART leído con getters UTC
+    const dow = d.getUTCDay();
+    const rel = RELATIVOS[i] ? ` (${RELATIVOS[i]})` : "";
+    const cerrado = dow === 0 || !cfg.horario.dias.includes(dow) ? " (cerrado)" : "";
+    lineas.push(`- ${NOMBRES_DIA[dow]} ${d.getUTCDate()}/${d.getUTCMonth() + 1}${rel}: ${d.toISOString().slice(0, 10)}${cerrado}`);
+  }
+  return lineas.join("\n");
+}
+
 /** Aviso automático con su fecha de envío: "(enviado el miércoles 25 a las 16:30) Hola Ana…". */
 export function formatearAviso(texto: string, enviadoEn: Date): string {
   return `(enviado ${fechaAmigable(enviadoEn)}) ${texto}`;
@@ -55,7 +77,8 @@ export function formatearAviso(texto: string, enviadoEn: Date): string {
 function seccionAvisos(avisos: string[] | undefined): string {
   const lista = (avisos ?? []).map((a) => a.trim()).filter(Boolean);
   if (lista.length === 0) return "";
-  const items = lista.map((a) => `- "${a.replace(/\s+/g, " ")}"`).join("\n");
+  // Sin comillas dobles adentro: así un aviso no puede "cerrar" la cita y agregar instrucciones.
+  const items = lista.map((a) => `- "${a.replace(/\s+/g, " ").replace(/"/g, "'")}"`).join("\n");
   return `
 
 # Mensajes automáticos que ya le mandaste al paciente:
@@ -91,11 +114,18 @@ ${tratamientos}
 - Usá emojis con moderación (uno cada tanto, no en todos los mensajes).
 - Hacé una sola pregunta por vez.
 
+# Calendario (próximos días, para el parámetro \`dia\`)
+${calendario(cfg, ahora)}
+
 # Cómo agendar
 1. Antes de ofrecer horarios, usá siempre la herramienta ver_disponibilidad. Nunca inventes horarios: ofrecé solo los que devuelve la herramienta.
+   - Si la persona menciona un día ("mañana", "el jueves", "el 3 de diciembre"), pasá \`dia\` con la fecha AAAA-MM-DD que corresponde según el calendario de arriba.
+   - Si dice "a la mañana" o "a la tarde", pasá también \`franja\` ("mañana" es antes de las 13, "tarde" desde las 13).
+   - Si no dice día, llamala sin \`dia\`: devuelve opciones de los próximos días.
+   - Si ese día no hay lugar (o la clínica no atiende), decíselo con claridad y ofrecé los horarios de \`alternativas\`, que son del día con lugar más cercano.
 2. Ofrecé 2 o 3 horarios concretos para que elija.
 3. Pedí el nombre de la persona antes de agendar.
-4. Cuando tengas tratamiento, horario y nombre, usá agendar_turno. Las fechas que le pasás a las herramientas son los valores ISO que devolvió ver_disponibilidad, tal cual.
+4. Cuando tengas tratamiento, horario y nombre, usá agendar_turno. Las fechas que le pasás a las herramientas son los valores \`inicio\` (ISO) que devolvió ver_disponibilidad, tal cual.
 5. Al final confirmá con un resumen: tratamiento, día y hora, dirección y nombre.
 
 # Otras herramientas

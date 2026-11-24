@@ -99,3 +99,31 @@ describe("avisos con fecha de envío", () => {
     expect(p).toMatch(/"hoy" o "mañana" dentro de un aviso son relativas a ese momento de envío/);
   });
 });
+
+describe("calendario y búsqueda por día", () => {
+  const p = construirPrompt(clinica, ahora);
+
+  it("lista los próximos días con su fecha AAAA-MM-DD para pasar en `dia`", () => {
+    expect(p).toContain("- martes 24/11 (hoy): 2026-11-24");
+    expect(p).toContain("- miércoles 25/11 (mañana): 2026-11-25");
+    expect(p).toContain("- jueves 26/11 (pasado mañana): 2026-11-26");
+    expect(p).toContain("- domingo 29/11: 2026-11-29 (cerrado)");
+    expect(p).toContain("- lunes 7/12: 2026-12-07");
+  });
+
+  it("el calendario usa el día de Argentina aunque en UTC ya sea mañana", () => {
+    const q = construirPrompt(clinica, new Date("2026-11-25T01:00:00Z"));
+    expect(q).toContain("- martes 24/11 (hoy): 2026-11-24");
+  });
+
+  it("explica dia, franja y qué hacer si no hay lugar", () => {
+    expect(p).toMatch(/pasá `dia`/);
+    expect(p).toMatch(/`franja`/);
+    expect(p).toMatch(/alternativas/);
+  });
+
+  it("las comillas de un aviso no cierran la cita", () => {
+    const q = construirPrompt(clinica, ahora, ['Hola "Ana" 👋']);
+    expect(q).toContain(`- "Hola 'Ana' 👋"`);
+  });
+});

@@ -2,12 +2,14 @@ import { describe, it, expect } from "vitest";
 import { clinica } from "@/config/clinica";
 import {
   ahoraInicialDemo,
+  buscarHorarios,
   claveRecordatorio,
   cuandoAmigable,
   diasDeAtencion,
   fechaAmigable,
   recordatoriosAlAgendar,
   recordatoriosNuevos,
+  proximoSalto,
   siguienteApertura,
   slotsLibres,
   agendar,
@@ -481,5 +483,149 @@ describe("recordatoriosAlAgendar", () => {
     const antes = bot({ id: "r", inicio: iso("2026-11-27T10:00:00-03:00") });
     const despues = { ...antes, inicio: iso("2026-11-25T11:00:00-03:00") };
     expect(recordatoriosAlAgendar([antes], [despues], clinica, ahoraA).map((x) => x.turnoId)).toEqual(["r"]);
+  });
+});
+
+describe("buscarHorarios", () => {
+  const art = (s: string) => new Date(`${s}-03:00`);
+  const diaArt = (x: string) => new Date(new Date(x).getTime() - 3 * 3600_000);
+  const horaArt = (x: string) => diaArt(x).getUTCHours() * 60 + diaArt(x).getUTCMinutes();
+  const valor = (r: ReturnType<typeof buscarHorarios>) => {
+    if (!r.ok) throw new Error(r.error);
+    return r.valor;
+  };
+
+  it("con día y franja tarde: sólo ese día desde las 13, repartidos (no seguidos)", () => {
+    const v = valor(buscarHorarios([], clinica, ahora, "limpieza", { dia: "2026-11-26", franja: "tarde" }));
+    expect(v.horarios).toEqual(
+      ["13:00", "14:00", "15:00", "16:00", "17:00", "18:00"].map((h) => iso(`2026-11-26T${h}:00-03:00`)),
+    );
+    expect(v.alternativas).toEqual([]);
+    expect(v.motivo).toBeUndefined();
+  });
+
+  it("con día y franja mañana: antes de las 13, como mucho 6", () => {
+    const v = valor(buscarHorarios([], clinica, ahora, "consulta", { dia: "2026-11-26", franja: "mañana" }));
+    expect(v.horarios.length).toBe(6);
+    for (const x of v.horarios) {
+      expect(diaArt(x).toISOString().slice(0, 10)).toBe("2026-11-26");
+      expect(horaArt(x)).toBeLessThan(13 * 60);
+    }
+  });
+
+  it("con la agenda de ejemplo: los horarios del jueves a la tarde se pueden agendar", () => {
+    const semilla = turnosSemilla(ahora);
+    const v = valor(buscarHorarios(semilla, clinica, ahora, "limpieza", { dia: "2026-11-26", franja: "tarde" }));
+    expect(v.horarios.length).toBe(6);
+    for (const x of v.horarios) {
+      expect(horaArt(x)).toBeGreaterThanOrEqual(13 * 60);
+      expect(agendar(semilla, clinica, ahora, { paciente: "Ana", tratamientoId: "limpieza", inicio: x }).ok).toBe(true);
+    }
+  });
+
+  it("hoy: sólo horarios futuros", () => {
+    const v = valor(buscarHorarios([], clinica, ahora, "consulta", { dia: "2026-11-24" }));
+    expect(v.horarios.length).toBe(6);
+    for (const x of v.horarios) expect(new Date(x).getTime()).toBeGreaterThan(ahora.getTime());
+  });
+
+  it("sin día: reparte entre al menos 3 días distintos, 2 por día", () => {
+    const v = valor(buscarHorarios(turnosSemilla(ahora), clinica, ahora, "limpieza"));
+    const dias = v.horarios.map((x) => diaArt(x).toISOString().slice(0, 10));
+    expect(new Set(dias).size).toBe(3);
+    expect(v.horarios.length).toBe(6);
+    for (const d of new Set(dias)) expect(dias.filter((x) => x === d).length).toBe(2);
+    expect([...v.horarios].sort()).toEqual(v.horarios);
+  });
+
+  it("sin día y sin turnos: dos por día, uno a la mañana y otro a la tarde", () => {
+    const v = valor(buscarHorarios([], clinica, ahora, "limpieza"));
+    expect(v.horarios).toEqual(
+      ["2026-11-24T12:30", "2026-11-24T16:30", "2026-11-25T11:00", "2026-11-25T16:00", "2026-11-26T11:00", "2026-11-26T16:00"].map(
+        (x) => iso(`${x}:00-03:00`),
+      ),
+    );
+  });
+
+  it("sin día con franja: todos en esa franja", () => {
+    const v = valor(buscarHorarios([], clinica, ahora, "consulta", { franja: "tarde" }));
+    expect(v.horarios.length).toBe(6);
+    for (const x of v.horarios) expect(horaArt(x)).toBeGreaterThanOrEqual(13 * 60);
+  });
+
+  it("domingo: sin horarios, motivo cerrado y alternativas del día más cercano", () => {
+    const v = valor(buscarHorarios([], clinica, ahora, "consulta", { dia: "2026-11-29" }));
+    expect(v.horarios).toEqual([]);
+    expect(v.motivo).toBe("cerrado");
+    expect(v.alternativas.length).toBe(3);
+    for (const x of v.alternativas) expect(diaArt(x).toISOString().slice(0, 10)).toBe("2026-11-30");
+  });
+
+  it("sábado a la tarde: sin lugar; alternativas el lunes a la tarde", () => {
+    const v = valor(buscarHorarios([], clinica, ahora, "consulta", { dia: "2026-11-28", franja: "tarde" }));
+    expect(v.horarios).toEqual([]);
+    expect(v.motivo).toBe("sin_lugar");
+    for (const x of v.alternativas) {
+      expect(diaArt(x).toISOString().slice(0, 10)).toBe("2026-11-30");
+      expect(horaArt(x)).toBeGreaterThanOrEqual(13 * 60);
+    }
+  });
+
+  it("día lleno: sin lugar y alternativas del día siguiente", () => {
+    const lleno: Turno[] = [];
+    for (let m = 9 * 60; m < 19 * 60; m += 30) {
+      const h = `${String(Math.floor(m / 60)).padStart(2, "0")}:${String(m % 60).padStart(2, "0")}`;
+      lleno.push(turno({ id: `x${m}`, inicio: iso(`2026-11-26T${h}:00-03:00`) }));
+    }
+    const v = valor(buscarHorarios(lleno, clinica, ahora, "consulta", { dia: "2026-11-26" }));
+    expect(v.horarios).toEqual([]);
+    expect(v.motivo).toBe("sin_lugar");
+    for (const x of v.alternativas) expect(diaArt(x).toISOString().slice(0, 10)).toBe("2026-11-27");
+  });
+
+  it("errores: día pasado, formato inválido, franja inválida, tratamiento inexistente", () => {
+    expect(buscarHorarios([], clinica, ahora, "consulta", { dia: "2026-11-23" })).toEqual({ ok: false, error: "Ese día ya pasó" });
+    expect(buscarHorarios([], clinica, ahora, "consulta", { dia: "jueves" }).ok).toBe(false);
+    expect(buscarHorarios([], clinica, ahora, "consulta", { dia: "2026-02-30" }).ok).toBe(false);
+    expect(buscarHorarios([], clinica, art("2026-11-24T10:00:00"), "consulta", { franja: "noche" as never }).ok).toBe(false);
+    expect(buscarHorarios([], clinica, ahora, "nope")).toEqual({ ok: false, error: "Tratamiento inexistente" });
+  });
+});
+
+describe("proximoSalto", () => {
+  const art = (s: string) => new Date(`${s}-03:00`);
+  const bot = (over: Partial<Turno> = {}) => turno({ origen: "bot", paciente: "Ana López", tratamientoId: "limpieza", ...over });
+
+  it("sin recordatorios pendientes: el próximo día de atención a la apertura", () => {
+    const semilla = turno({ id: "s", inicio: iso("2026-11-25T16:00:00-03:00") });
+    expect(proximoSalto([semilla], clinica, art("2026-11-24T10:00:00"))).toEqual(art("2026-11-25T09:00:00"));
+  });
+
+  it("turno de pasado mañana: primero el aviso de 24 h, después el de 2 h", () => {
+    const t = bot({ inicio: iso("2026-11-26T16:00:00-03:00") });
+    const s1 = proximoSalto([t], clinica, art("2026-11-24T10:00:00"));
+    expect(s1).toEqual(art("2026-11-25T16:00:00"));
+    expect(recordatoriosNuevos([t], clinica, art("2026-11-24T10:00:00"), s1).map((r) => r.tipo)).toEqual(["24h"]);
+    const s2 = proximoSalto([t], clinica, s1);
+    expect(s2).toEqual(art("2026-11-26T14:00:00"));
+    expect(recordatoriosNuevos([t], clinica, s1, s2).map((r) => r.tipo)).toEqual(["2h"]);
+    // ya no quedan: vuelve a saltar al próximo día de atención
+    expect(proximoSalto([t], clinica, s2)).toEqual(art("2026-11-27T09:00:00"));
+  });
+
+  it("turno de mañana reservado temprano: el de 24 h sale hoy, el de 2 h mañana", () => {
+    const t = bot({ inicio: iso("2026-11-25T16:00:00-03:00") });
+    expect(proximoSalto([t], clinica, art("2026-11-24T10:00:00"))).toEqual(art("2026-11-24T16:00:00"));
+    expect(proximoSalto([t], clinica, art("2026-11-24T16:00:00"))).toEqual(art("2026-11-25T14:00:00"));
+  });
+
+  it("un recordatorio lejano (después del próximo día de atención) no se adelanta", () => {
+    const t = bot({ inicio: iso("2026-12-01T16:00:00-03:00") });
+    expect(proximoSalto([t], clinica, art("2026-11-24T10:00:00"))).toEqual(art("2026-11-25T09:00:00"));
+  });
+
+  it("ignora turnos cancelados", () => {
+    const t = bot({ estado: "cancelado", inicio: iso("2026-11-25T16:00:00-03:00") });
+    expect(proximoSalto([t], clinica, art("2026-11-24T10:00:00"))).toEqual(art("2026-11-25T09:00:00"));
   });
 });
