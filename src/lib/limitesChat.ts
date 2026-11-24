@@ -67,7 +67,10 @@ export function recortarHistorial<T extends { role: string; parts: unknown }>(me
 /** ¿El error (o algo que envuelve) es de autenticación del AI Gateway? (sin clave ni OIDC válidos) */
 export function esErrorDeAutenticacion(e: unknown, profundidad = 0): boolean {
   if (!e || typeof e !== "object" || profundidad > 4) return false;
-  const err = e as { name?: unknown; cause?: unknown; lastError?: unknown };
+  const err = e as { name?: unknown; cause?: unknown; lastError?: unknown; statusCode?: unknown; responseBody?: unknown; message?: unknown };
   if (err.name === "GatewayAuthenticationError") return true;
+  // Cuenta del AI Gateway sin tarjeta cargada: tampoco hay IA disponible.
+  const texto = `${typeof err.message === "string" ? err.message : ""} ${typeof err.responseBody === "string" ? err.responseBody : ""}`;
+  if (texto.includes("customer_verification_required") || texto.includes("requires a valid credit card")) return true;
   return esErrorDeAutenticacion(err.lastError, profundidad + 1) || esErrorDeAutenticacion(err.cause, profundidad + 1);
 }

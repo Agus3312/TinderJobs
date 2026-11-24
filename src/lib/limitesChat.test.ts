@@ -76,6 +76,14 @@ describe("esErrorDeAutenticacion", () => {
     expect(esErrorDeAutenticacion(conNombre("Otro", { cause: conNombre("GatewayAuthenticationError") }))).toBe(true);
   });
 
+  it("detecta la cuenta sin tarjeta cargada (customer_verification_required)", () => {
+    const sinTarjeta = conNombre("GatewayInternalServerError", {
+      cause: conNombre("AI_APICallError", { responseBody: '{"error":{"type":"customer_verification_required"}}' }),
+    });
+    expect(esErrorDeAutenticacion(sinTarjeta)).toBe(true);
+    expect(esErrorDeAutenticacion(Object.assign(new Error("AI Gateway requires a valid credit card on file"), { name: "X" }))).toBe(true);
+  });
+
   it("otros errores no", () => {
     expect(esErrorDeAutenticacion(conNombre("GatewayRateLimitError"))).toBe(false);
     expect(esErrorDeAutenticacion("ups")).toBe(false);
