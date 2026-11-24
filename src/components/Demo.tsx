@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from "react";
+import { useCallback, useEffect, useRef, useState, useSyncExternalStore, type ReactNode } from "react";
 import { clinica } from "@/config/clinica";
 import {
   ahoraInicialDemo,
@@ -21,6 +21,15 @@ import PanelClinica from "./panel/PanelClinica";
 export type MensajeSistema = { id: string; texto: string; at: string };
 
 const sinSuscripcion = () => () => {};
+
+type Pestana = "chat" | "clinica";
+const ESCRITORIO = "(min-width: 48rem)"; // breakpoint `md` de Tailwind: dos paneles lado a lado
+
+function suscribirEscritorio(cb: () => void) {
+  const mq = window.matchMedia(ESCRITORIO);
+  mq.addEventListener("change", cb);
+  return () => mq.removeEventListener("change", cb);
+}
 
 /** Cuántos avisos automáticos le mandamos al modelo como contexto (y su largo máximo). */
 const MAX_AVISOS = 10;
@@ -77,6 +86,30 @@ function DemoCliente() {
   // Momento real en que se fijó `ahora`: el reloj de la demo avanza desde ahí.
   const fijadoEnRef = useRef(inicial.fijadoEn);
 
+  // Móvil: una pestaña a la vez (el chat no se desmonta, sólo se oculta, así no pierde estado).
+  const [pestana, setPestana] = useState<Pestana>("chat");
+  const pestanaRef = useRef<Pestana>("chat");
+  const escritorio = useSyncExternalStore(
+    suscribirEscritorio,
+    () => window.matchMedia(ESCRITORIO).matches,
+    () => false,
+  );
+  const escritorioRef = useRef(escritorio);
+  useEffect(() => {
+    escritorioRef.current = escritorio;
+  }, [escritorio]);
+  /** Novedades sin ver en cada pestaña (sólo se muestran en móvil). */
+  const [novedades, setNovedades] = useState<Record<Pestana, number>>({ chat: 0, clinica: 0 });
+  const avisarNovedad = useCallback((en: Pestana, n = 1) => {
+    if (n <= 0 || escritorioRef.current || pestanaRef.current === en) return;
+    setNovedades((prev) => ({ ...prev, [en]: prev[en] + n }));
+  }, []);
+  const cambiarPestana = useCallback((p: Pestana) => {
+    pestanaRef.current = p;
+    setPestana(p);
+    setNovedades((prev) => (prev[p] === 0 ? prev : { ...prev, [p]: 0 }));
+  }, []);
+
   useEffect(() => {
     if (ahoraRef.current !== ahora) {
       ahoraRef.current = ahora;
@@ -122,8 +155,10 @@ function DemoCliente() {
     if (pendientesRef.current.length === 0) return;
     const at = new Date(reloj().getTime() + 1000).toISOString();
     agregarMensajes(pendientesRef.current.map((p) => ({ ...p, at })));
+    // El recordatorio también aparece en el panel: avisamos en la pestaña "Clínica".
+    avisarNovedad("clinica");
     pendientesRef.current = [];
-  }, [agregarMensajes, reloj]);
+  }, [agregarMensajes, avisarNovedad, reloj]);
 
   const onHerramienta = useCallback(
     (nombre: string, input: unknown) => {
@@ -134,6 +169,7 @@ function DemoCliente() {
       });
       if (r.turnos) {
         actualizarTurnos(r.turnos);
+        avisarNovedad("clinica");
         // Turno del bot con menos de 24 h de anticipación: el aviso de 24 h sale ya.
         const ahoraVirtual = reloj();
         const recs = recordatoriosAlAgendar(previos, r.turnos, clinica, ahoraVirtual);
@@ -143,10 +179,11 @@ function DemoCliente() {
       if (r.derivacion) {
         const motivo = r.derivacion;
         setDerivaciones((prev) => [...prev, motivo]);
+        avisarNovedad("clinica");
       }
       return r.output;
     },
-    [actualizarTurnos, marcarEnviados, reloj],
+    [actualizarTurnos, avisarNovedad, marcarEnviados, reloj],
   );
 
   const obtenerAhora = useCallback(() => ahoraRef.current, []);
@@ -176,30 +213,127 @@ function DemoCliente() {
     setAhora(despues);
     marcarEnviados(recs, (r) => r.enviarEn);
     agregarMensajes(recs.map((r) => ({ id: `rec-${claveRecordatorio(r)}`, texto: r.texto, at: r.enviarEn })));
+    // Los recordatorios llegan al chat del paciente: avisamos en la pestaña "Chat".
+    avisarNovedad("chat", recs.length);
     return recs.length;
-  }, [agregarMensajes, marcarEnviados, publicarPendientes, reloj]);
+  }, [agregarMensajes, avisarNovedad, marcarEnviados, publicarPendientes, reloj]);
+
+  const verChat = escritorio || pestana === "chat";
+  const verClinica = escritorio || pestana === "clinica";
 
   return (
-    <main className="flex h-dvh w-full overflow-hidden">
-      <Chat
-        className="min-w-0 flex-1"
-        mensajesSistema={mensajesSistema}
-        ahora={ahora}
-        obtenerAhora={obtenerAhora}
-        obtenerAvisos={obtenerAvisos}
-        reloj={reloj}
-        onHerramienta={onHerramienta}
-        onRespuestaTerminada={publicarPendientes}
-      />
-      <PanelClinica
-        className="hidden w-[46%] max-w-[820px] shrink-0 md:flex xl:w-[52%]"
-        turnos={turnos}
-        ahora={ahora}
-        reloj={reloj}
-        derivaciones={derivaciones}
-        enviados={enviados}
-        onSimularDia={simularDia}
-      />
+    <main className="flex h-dvh w-full flex-col overflow-hidden md:flex-row">
+      <div className={`${pestana === "chat" ? "flex" : "hidden"} min-h-0 min-w-0 flex-1 flex-col md:flex`}>
+        <Chat
+          className="min-h-0 flex-1"
+          activo={verChat}
+          mensajesSistema={mensajesSistema}
+          ahora={ahora}
+          obtenerAhora={obtenerAhora}
+          obtenerAvisos={obtenerAvisos}
+          reloj={reloj}
+          onHerramienta={onHerramienta}
+          onRespuestaTerminada={publicarPendientes}
+        />
+      </div>
+      <div
+        className={`${pestana === "clinica" ? "flex" : "hidden"} min-h-0 flex-1 flex-col md:flex md:w-[46%] md:max-w-[820px] md:flex-none md:shrink-0 xl:w-[52%]`}
+      >
+        <PanelClinica
+          className="min-h-0 flex-1 max-md:border-l-0"
+          activo={verClinica}
+          turnos={turnos}
+          ahora={ahora}
+          reloj={reloj}
+          derivaciones={derivaciones}
+          enviados={enviados}
+          onSimularDia={simularDia}
+        />
+      </div>
+      <Pestanas actual={pestana} novedades={novedades} onCambiar={cambiarPestana} />
     </main>
+  );
+}
+
+/* ---------- barra de pestañas (sólo móvil) ---------- */
+
+const PESTANAS: { id: Pestana; etiqueta: string; icono: () => ReactNode }[] = [
+  { id: "chat", etiqueta: "Chat", icono: IconoChat },
+  { id: "clinica", etiqueta: "Clínica", icono: IconoClinica },
+];
+
+function Pestanas({
+  actual,
+  novedades,
+  onCambiar,
+}: {
+  actual: Pestana;
+  novedades: Record<Pestana, number>;
+  onCambiar: (p: Pestana) => void;
+}) {
+  return (
+    <nav
+      aria-label="Secciones de la demo"
+      // Oculta mientras se escribe (teclado abierto), como en las apps de mensajería.
+      className="z-20 shrink-0 border-t border-black/[.08] bg-white pb-[env(safe-area-inset-bottom)] md:hidden [main:has(textarea:focus)_&]:hidden"
+    >
+      <ul role="tablist" className="mx-auto grid max-w-md grid-cols-2">
+        {PESTANAS.map(({ id, etiqueta, icono: Icono }) => {
+          const activa = actual === id;
+          const n = novedades[id];
+          return (
+            <li key={id} className="flex">
+              <button
+                type="button"
+                role="tab"
+                aria-selected={activa}
+                onClick={() => onCambiar(id)}
+                className="group flex min-h-16 flex-1 flex-col items-center justify-center gap-1 pb-1.5 pt-2 text-[12.5px] focus-visible:outline-none"
+              >
+                <span
+                  className={`relative grid h-8 w-16 place-items-center rounded-full transition-colors group-focus-visible:ring-2 group-focus-visible:ring-(--primario) ${
+                    activa ? "bg-(--primario-suave) text-(--primario-oscuro)" : "text-[#54656f] group-active:bg-black/5"
+                  }`}
+                >
+                  <Icono />
+                  {n > 0 && (
+                    <span
+                      key={n}
+                      className="absolute -top-1 right-2 grid h-[18px] min-w-[18px] place-items-center rounded-full bg-(--primario) px-1 text-[11px] font-bold leading-none text-white ring-2 ring-white tabular-nums animate-contador"
+                    >
+                      {n > 9 ? "9+" : n}
+                      <span className="sr-only"> {n === 1 ? "novedad" : "novedades"}</span>
+                    </span>
+                  )}
+                </span>
+                <span className={activa ? "font-semibold text-[#111b21]" : "font-medium text-[#54656f]"}>{etiqueta}</span>
+              </button>
+            </li>
+          );
+        })}
+      </ul>
+    </nav>
+  );
+}
+
+function IconoChat() {
+  return (
+    <svg viewBox="0 0 24 24" className="size-6" aria-hidden>
+      <path
+        fill="currentColor"
+        d="M12 3C6.98 3 3 6.58 3 11.1c0 1.86.69 3.57 1.84 4.94L4 20.4a.6.6 0 0 0 .82.66l4.13-1.8c.96.27 1.98.42 3.05.42 5.02 0 9-3.58 9-8.1S17.02 3 12 3zm-4 9.35a1.25 1.25 0 1 1 0-2.5 1.25 1.25 0 0 1 0 2.5zm4 0a1.25 1.25 0 1 1 0-2.5 1.25 1.25 0 0 1 0 2.5zm4 0a1.25 1.25 0 1 1 0-2.5 1.25 1.25 0 0 1 0 2.5z"
+      />
+    </svg>
+  );
+}
+
+function IconoClinica() {
+  return (
+    <svg viewBox="0 0 24 24" className="size-6" aria-hidden>
+      <path
+        fill="currentColor"
+        d="M7 2a1 1 0 0 1 1 1v1h8V3a1 1 0 1 1 2 0v1h1a3 3 0 0 1 3 3v11a3 3 0 0 1-3 3H5a3 3 0 0 1-3-3V7a3 3 0 0 1 3-3h1V3a1 1 0 0 1 1-1zm13 8H4v8a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-8zm-8 1.5a1 1 0 0 1 1 1V14h1.5a1 1 0 1 1 0 2H13v1.5a1 1 0 1 1-2 0V16H9.5a1 1 0 1 1 0-2H11v-1.5a1 1 0 0 1 1-1z"
+      />
+    </svg>
   );
 }

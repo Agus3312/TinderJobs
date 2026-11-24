@@ -2,7 +2,7 @@
 
 import { useChat } from "@ai-sdk/react";
 import { DefaultChatTransport, lastAssistantMessageIsCompleteWithToolCalls, type UIMessage } from "ai";
-import { Fragment, useEffect, useRef, useState, type CSSProperties, type ReactNode } from "react";
+import { Fragment, useEffect, useRef, useState, type ReactNode } from "react";
 import { clinica } from "@/config/clinica";
 import { inicioDelDiaArt } from "@/lib/agenda";
 import type { MensajeSistema } from "./Demo";
@@ -46,13 +46,10 @@ function etiquetaDia(diaMs: number, hoyMs: number): string {
   return fmtDia.format(new Date(diaMs + 12 * 3600_000));
 }
 
-const variables = {
-  "--primario": clinica.colorPrimario,
-  "--primario-oscuro": `color-mix(in oklab, ${clinica.colorPrimario} 78%, black)`,
-} as CSSProperties;
-
 type Props = {
   className?: string;
+  /** Visible en pantalla (en móvil el chat se oculta al ir a la pestaña "Clínica"). */
+  activo?: boolean;
   mensajesSistema: MensajeSistema[];
   /** `ahora` vigente de la demo (para los separadores de día). */
   ahora: Date;
@@ -78,6 +75,7 @@ type Item =
 
 export default function Chat({
   className = "",
+  activo = true,
   mensajesSistema,
   ahora,
   obtenerAhora,
@@ -155,6 +153,11 @@ export default function Chat({
     const el = scrollRef.current;
     if (el) el.scrollTo({ top: el.scrollHeight, behavior: "smooth" });
   }, [items.length, messages, escribiendo]);
+  // Al volver a la pestaña del chat, mostrar lo último (pudo llegar algo mientras estaba oculto).
+  useEffect(() => {
+    const el = scrollRef.current;
+    if (activo && el) el.scrollTo({ top: el.scrollHeight });
+  }, [activo]);
 
   // Re-enfocar el input al terminar de responder, sólo si el paciente estaba escribiendo
   // (foco dentro del formulario). Con los chips no, para no abrir el teclado en el celular.
@@ -180,7 +183,6 @@ export default function Chat({
 
   return (
     <section
-      style={variables}
       className={`flex h-full flex-col bg-[#efeae2] text-[#111b21] ${className}`}
       aria-label={`Chat con ${clinica.nombre}`}
     >
@@ -484,7 +486,7 @@ function Encabezado({ escribiendo }: { escribiendo: boolean }) {
 /** Esqueleto mientras se monta en el cliente. */
 export function ChatCargando() {
   return (
-    <main className="flex h-dvh w-full flex-col bg-[#efeae2]" style={variables} aria-busy>
+    <main className="flex h-dvh w-full flex-col bg-[#efeae2]" aria-busy>
       <div className="flex items-center gap-3 bg-(--primario-oscuro) px-4 py-2.5">
         <div className="size-10 rounded-full bg-white/90" />
         <div className="space-y-1.5">

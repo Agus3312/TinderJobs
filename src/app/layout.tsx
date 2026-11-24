@@ -1,3 +1,4 @@
+import type { CSSProperties } from "react";
 import type { Metadata, Viewport } from "next";
 import { Geist } from "next/font/google";
 import { clinica } from "@/config/clinica";
@@ -23,7 +24,12 @@ export const viewport: Viewport = {
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
-    <html lang="es" className={`${geistSans.variable} h-full antialiased`}>
+    <html
+      lang="es"
+      className={`${geistSans.variable} h-full antialiased`}
+      // Color de la marca (src/config/clinica.ts): los acentos derivan de esta variable en globals.css.
+      style={{ "--primario": clinica.colorPrimario } as CSSProperties}
+    >
       <body className="min-h-full">{children}</body>
     </html>
   );

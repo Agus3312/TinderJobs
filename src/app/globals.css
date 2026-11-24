@@ -85,6 +85,15 @@
   }
 }
 
+:root {
+  /* Se pisa desde layout.tsx con `colorPrimario` de la config de la clínica. */
+  --primario: #0d9488;
+  --primario-oscuro: color-mix(in oklab, var(--primario) 78%, black);
+  --primario-texto: color-mix(in oklab, var(--primario) 62%, black);
+  --primario-suave: color-mix(in oklab, var(--primario) 14%, white);
+  --primario-tenue: color-mix(in oklab, var(--primario) 7%, white);
+}
+
 html,
 body {
   background: #efeae2;

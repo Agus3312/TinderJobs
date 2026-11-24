@@ -9,10 +9,12 @@ type Props = {
   turnos: Turno[];
   /** Hora simulada vigente (para marcar "Hoy" y atenuar los turnos que ya pasaron). */
   ahora: Date;
+  /** Visible en pantalla: si está oculta (pestaña de móvil), el scroll espera a que se muestre. */
+  activo?: boolean;
 };
 
 /** Agenda de los próximos 5 días de atención, una columna por día. */
-export default function Agenda({ turnos, ahora }: Props) {
+export default function Agenda({ turnos, ahora, activo = true }: Props) {
   const dias = diasDeAtencion(ahora, clinica, 5);
   const porDia = new Map<number, Turno[]>(dias.map((d) => [d, []]));
   for (const t of turnos) {
@@ -25,12 +27,12 @@ export default function Agenda({ turnos, ahora }: Props) {
   const ultimoBot = delBot.at(-1)?.id;
   const vistos = useRef(new Set(delBot.map((t) => t.id)));
   useEffect(() => {
-    if (!ultimoBot || vistos.current.has(ultimoBot)) return;
+    if (!activo || !ultimoBot || vistos.current.has(ultimoBot)) return;
     vistos.current.add(ultimoBot);
     const el = document.querySelector(`[data-turno="${ultimoBot}"]`);
     const reducido = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
     el?.scrollIntoView({ block: "nearest", behavior: reducido ? "auto" : "smooth" });
-  }, [ultimoBot]);
+  }, [ultimoBot, activo]);
 
   const ahoraMs = ahora.getTime();
 
@@ -45,13 +47,13 @@ export default function Agenda({ turnos, ahora }: Props) {
             <li
               key={d}
               className={`flex min-w-0 flex-col rounded-xl p-1.5 @xl:min-h-[220px] ${
-                esHoy ? "bg-teal-50/80 ring-1 ring-teal-200/80" : "bg-slate-50 ring-1 ring-slate-200/60"
+                esHoy ? "bg-(--primario-tenue) ring-1 ring-(--primario)/25" : "bg-slate-50 ring-1 ring-slate-200/60"
               }`}
             >
               <div className="flex items-baseline justify-between gap-1 px-1.5 pb-1.5 pt-0.5">
-                <span className={`truncate text-[12.5px] font-semibold ${esHoy ? "text-teal-800" : "text-slate-700"}`}>
+                <span className={`truncate text-[12.5px] font-semibold ${esHoy ? "text-(--primario-texto)" : "text-slate-700"}`}>
                   {esHoy ? "Hoy" : capitalizar(diaCorto(d))}
-                  {esHoy && <span className="ml-1 font-normal text-teal-700/70">{diaCorto(d).split(" ")[1]}</span>}
+                  {esHoy && <span className="ml-1 font-normal text-(--primario-texto)/70">{diaCorto(d).split(" ")[1]}</span>}
                 </span>
                 <span className="shrink-0 text-[11px] tabular-nums text-slate-400">
                   {activos} {activos === 1 ? "turno" : "turnos"}

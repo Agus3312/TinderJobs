@@ -11,7 +11,7 @@ const EJEMPLO = [
 export default function Metricas({ turnosDelBot }: { turnosDelBot: number }) {
   return (
     <div className="space-y-2.5">
-      <div className="flex items-center gap-3 rounded-xl bg-gradient-to-br from-teal-600 to-teal-700 px-4 py-3 text-white shadow-sm">
+      <div className="flex items-center gap-3 rounded-xl bg-gradient-to-br from-(--primario) to-(--primario-oscuro) px-4 py-3 text-white shadow-sm">
         <span
           key={turnosDelBot}
           className="text-[30px] font-bold leading-none tabular-nums animate-contador"
@@ -19,7 +19,7 @@ export default function Metricas({ turnosDelBot }: { turnosDelBot: number }) {
         >
           {turnosDelBot}
         </span>
-        <p className="min-w-0 text-[13px] leading-snug text-teal-50">
+        <p className="min-w-0 text-[13px] leading-snug text-white/85">
           <span className="font-semibold text-white">
             {turnosDelBot === 1 ? "turno agendado" : "turnos agendados"} por el asistente
           </span>{" "}

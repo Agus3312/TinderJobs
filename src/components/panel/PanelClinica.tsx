@@ -10,6 +10,8 @@ import { capitalizar, diaLargo, hora } from "./formato";
 
 type Props = {
   className?: string;
+  /** Visible en pantalla (en móvil el panel vive en la pestaña "Clínica"). */
+  activo?: boolean;
   turnos: Turno[];
   /** `ahora` fijado de la demo (cambia con "Simular día siguiente"). */
   ahora: Date;
@@ -22,9 +24,9 @@ type Props = {
   onSimularDia: () => number;
 };
 
-type Toast = { id: number; texto: string };
+type Toast = { id: number; texto: string; alChat: boolean };
 
-export default function PanelClinica({ className = "", turnos, ahora, reloj, derivaciones, enviados, onSimularDia }: Props) {
+export default function PanelClinica({ className = "", activo = true, turnos, ahora, reloj, derivaciones, enviados, onSimularDia }: Props) {
   // Hora simulada "en vivo" (avanza con el tiempo real; se recalcula al cambiar `ahora`).
   const [vivo, setVivo] = useState(() => reloj());
   useEffect(() => {
@@ -50,7 +52,7 @@ export default function PanelClinica({ className = "", turnos, ahora, reloj, der
       n === 0
         ? "Avanzamos al próximo día de atención."
         : `Se ${n === 1 ? "envió 1 recordatorio" : `enviaron ${n} recordatorios`} por WhatsApp 📲`;
-    setToast({ id: Date.now(), texto });
+    setToast({ id: Date.now(), texto, alChat: n > 0 });
   };
 
   const turnosDelBot = turnos.filter((t) => t.origen === "bot" && t.estado !== "cancelado").length;
@@ -63,7 +65,7 @@ export default function PanelClinica({ className = "", turnos, ahora, reloj, der
       <header className="z-10 border-b border-slate-200 bg-white/95 px-4 py-3 backdrop-blur lg:px-5">
         <div className="flex flex-wrap items-center gap-x-4 gap-y-2.5">
           <div className="min-w-[250px] flex-1">
-            <p className="text-[11px] font-semibold uppercase tracking-[.12em] text-teal-700">Panel de la clínica</p>
+            <p className="text-[11px] font-semibold uppercase tracking-[.12em] text-(--primario-texto)">Panel de la clínica</p>
             <h2 className="flex items-center gap-1.5 truncate text-[17px] font-bold leading-tight">
               <span aria-hidden>{clinica.logoEmoji}</span>
               <span className="truncate">{clinica.nombre}</span>
@@ -80,7 +82,7 @@ export default function PanelClinica({ className = "", turnos, ahora, reloj, der
           <button
             type="button"
             onClick={simular}
-            className="inline-flex shrink-0 items-center gap-2 rounded-full bg-teal-700 px-4 py-2 text-[13.5px] font-semibold text-white shadow-sm transition hover:bg-teal-800 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-teal-700 active:scale-[.97]"
+            className="inline-flex shrink-0 items-center gap-2 rounded-full bg-(--primario-oscuro) px-4 py-2 text-[13.5px] font-semibold text-white shadow-sm transition hover:bg-(--primario-texto) focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-(--primario) active:scale-[.97]"
           >
             Simular día siguiente <span aria-hidden>⏭</span>
           </button>
@@ -92,6 +94,8 @@ export default function PanelClinica({ className = "", turnos, ahora, reloj, der
               className="mt-2.5 rounded-lg bg-emerald-50 px-3 py-1.5 text-[12.5px] font-medium text-emerald-800 ring-1 ring-emerald-200 animate-entrada"
             >
               {toast.texto}
+              {/* En móvil el chat está en otra pestaña: indicamos dónde mirar. */}
+              {toast.alChat && <span className="md:hidden"> Miralo en la pestaña Chat.</span>}
             </p>
           )}
         </div>
@@ -114,7 +118,7 @@ export default function PanelClinica({ className = "", turnos, ahora, reloj, der
             </span>
           }
         >
-          <Agenda turnos={turnos} ahora={vivo} />
+          <Agenda turnos={turnos} ahora={vivo} activo={activo} />
         </Seccion>
 
         <Seccion titulo="Recordatorios automáticos" subtitulo="Por WhatsApp, 24 h y 2 h antes de cada turno">
