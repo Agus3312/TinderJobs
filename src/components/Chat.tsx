@@ -4,6 +4,7 @@ import { useChat } from "@ai-sdk/react";
 import { DefaultChatTransport, lastAssistantMessageIsCompleteWithToolCalls, type UIMessage } from "ai";
 import { Fragment, useEffect, useRef, useState, type CSSProperties, type ReactNode } from "react";
 import { clinica } from "@/config/clinica";
+import { inicioDelDiaArt } from "@/lib/agenda";
 import type { MensajeSistema } from "./Demo";
 
 const MAX_CHARS = 500;
@@ -33,6 +34,17 @@ const fmtHora = new Intl.DateTimeFormat("es-AR", {
   hour12: false,
 });
 const hora = (iso: string | undefined) => (iso ? fmtHora.format(new Date(iso)) : "");
+const fmtDia = new Intl.DateTimeFormat("es-AR", { timeZone: TZ, weekday: "long", day: "numeric", month: "long" });
+const DIA_MS = 24 * 3600_000;
+
+/** Etiqueta del separador de día estilo WhatsApp: "Hoy", "Ayer" o "miércoles 25 de noviembre". */
+function etiquetaDia(diaMs: number, hoyMs: number): string {
+  const dif = Math.round((hoyMs - diaMs) / DIA_MS);
+  if (dif === 0) return "Hoy";
+  if (dif === 1) return "Ayer";
+  if (dif === -1) return "Mañana";
+  return fmtDia.format(new Date(diaMs + 12 * 3600_000));
+}
 
 const variables = {
   "--primario": clinica.colorPrimario,
@@ -42,8 +54,12 @@ const variables = {
 type Props = {
   className?: string;
   mensajesSistema: MensajeSistema[];
+  /** `ahora` vigente de la demo (para los separadores de día). */
+  ahora: Date;
   /** `ahora` vigente de la demo (se envía al modelo en cada request). */
   obtenerAhora: () => Date;
+  /** Avisos automáticos ya enviados (recordatorios), que también se mandan al modelo. */
+  obtenerAvisos?: () => string[];
   /** Reloj de la demo para sellar la hora de cada burbuja. */
   reloj: () => Date;
   /** Ejecuta una tool contra la agenda local y devuelve su output. */
@@ -55,14 +71,23 @@ type Metadatos = { at?: string };
 /** Una burbuja en pantalla. */
 type Item =
   | { tipo: "msg"; key: string; propio: boolean; texto: string; at?: string; leido?: boolean; primero: boolean }
-  | { tipo: "aviso"; key: string; variante: "sin_ia" | "error"; at?: string; primero: boolean };
+  | { tipo: "aviso"; key: string; variante: "sin_ia" | "error"; at?: string; primero: boolean }
+  | { tipo: "dia"; key: string; diaMs: number; at?: string; primero: boolean };
 
-export default function Chat({ className = "", mensajesSistema, obtenerAhora, reloj, onHerramienta }: Props) {
+export default function Chat({
+  className = "",
+  mensajesSistema,
+  ahora,
+  obtenerAhora,
+  obtenerAvisos,
+  reloj,
+  onHerramienta,
+}: Props) {
   const [transport] = useState(
     () =>
       new DefaultChatTransport({
         api: "/api/chat",
-        body: () => ({ ahora: obtenerAhora().toISOString() }),
+        body: () => ({ ahora: obtenerAhora().toISOString(), avisos: obtenerAvisos?.() ?? [] }),
       }),
   );
   const [horas, setHoras] = useState<Record<string, string>>({});
@@ -110,6 +135,7 @@ export default function Chat({ className = "", mensajesSistema, obtenerAhora, re
       ? { variante: "error", at: cortadoAt }
       : undefined;
   const items = construirItems(messages, mensajesSistema, horas, aviso);
+  const hoyMs = inicioDelDiaArt(ahora.getTime());
 
   const scrollRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
@@ -149,18 +175,22 @@ export default function Chat({ className = "", mensajesSistema, obtenerAhora, re
 
       <div ref={scrollRef} className="fondo-chat relative flex-1 overflow-y-auto overscroll-contain">
         <div className="mx-auto flex w-full max-w-3xl flex-col px-3 py-3 sm:px-[6%] lg:px-10">
-          <div className="mb-2 flex justify-center">
-            <span className="rounded-lg bg-white/95 px-3 py-1 text-[12.5px] font-medium uppercase tracking-wide text-[#54656f] shadow-[0_1px_0.5px_rgba(11,20,26,.13)]">
-              Hoy
-            </span>
-          </div>
+          {items[0]?.tipo === "dia" && <SeparadorDia etiqueta={etiquetaDia(items[0].diaMs, hoyMs)} />}
           <p className="mx-auto mb-3 max-w-md rounded-lg bg-[#ffeecd] px-3 py-1.5 text-center text-[12.5px] leading-snug text-[#54656f] shadow-[0_1px_0.5px_rgba(11,20,26,.13)]">
             <IconoCandado /> Demo: responde un asistente con IA, como lo haría la recepción de la clínica.
             Los pacientes y turnos son ficticios.
           </p>
 
-          {items.map((it) => (
-            <Fragment key={it.key}>{it.tipo === "msg" ? <Burbuja item={it} /> : <Aviso item={it} />}</Fragment>
+          {items.map((it, i) => (
+            <Fragment key={it.key}>
+              {it.tipo === "msg" ? (
+                <Burbuja item={it} />
+              ) : it.tipo === "aviso" ? (
+                <Aviso item={it} />
+              ) : i > 0 ? (
+                <SeparadorDia etiqueta={etiquetaDia(it.diaMs, hoyMs)} className="mt-3" />
+              ) : null}
+            </Fragment>
           ))}
 
           {escribiendo && <Escribiendo etiqueta={herramientaEnCurso && ETIQUETA_HERRAMIENTA[herramientaEnCurso]} />}
@@ -298,14 +328,30 @@ function construirItems(
   }
   while (k < locales.length) out.push(locales[k++]);
 
-  // 3) La "colita" de la burbuja va sólo en la primera de cada grupo del mismo lado.
-  let lado: boolean | undefined;
+  // 3) Separadores de día (hora de Argentina) cuando cambia la fecha.
+  const conDias: Item[] = [];
+  let diaPrevio: number | undefined;
   for (const it of out) {
+    const dia = it.at ? inicioDelDiaArt(new Date(it.at).getTime()) : diaPrevio;
+    if (dia !== undefined && dia !== diaPrevio) {
+      conDias.push({ tipo: "dia", key: `dia-${dia}`, diaMs: dia, at: it.at, primero: false });
+      diaPrevio = dia;
+    }
+    conDias.push(it);
+  }
+
+  // 4) La "colita" de la burbuja va sólo en la primera de cada grupo del mismo lado.
+  let lado: boolean | undefined;
+  for (const it of conDias) {
+    if (it.tipo === "dia") {
+      lado = undefined;
+      continue;
+    }
     const propio = it.tipo === "msg" && it.propio;
     it.primero = propio !== lado;
     lado = propio;
   }
-  return out;
+  return conDias;
 }
 
 /** WhatsApp-style: *negrita* (y **negrita** de markdown) → <strong>. */
@@ -339,6 +385,16 @@ function Burbuja({ item }: { item: Extract<Item, { tipo: "msg" }> }) {
           {propio && <Ticks leido={!!item.leido} />}
         </span>
       </div>
+    </div>
+  );
+}
+
+function SeparadorDia({ etiqueta, className = "" }: { etiqueta: string; className?: string }) {
+  return (
+    <div className={`mb-2 flex justify-center ${className}`}>
+      <span className="rounded-lg bg-white/95 px-3 py-1 text-[12.5px] font-medium uppercase tracking-wide text-[#54656f] shadow-[0_1px_0.5px_rgba(11,20,26,.13)]">
+        {etiqueta}
+      </span>
     </div>
   );
 }

@@ -4,6 +4,9 @@
   --font-sans: var(--font-geist-sans), ui-sans-serif, system-ui, "Segoe UI", Helvetica, Arial, sans-serif;
   --animate-entrada: entrada 180ms ease-out both;
   --animate-punto: punto 1.2s ease-in-out infinite;
+  --animate-nuevo: nuevo-entra 420ms cubic-bezier(.2, .9, .3, 1.3) both, nuevo-brillo 1.6s ease-out 420ms 3;
+  --animate-contador: contador 500ms cubic-bezier(.2, .9, .3, 1.4) both;
+  --animate-latido: latido 2s ease-in-out infinite;
 }
 
 @keyframes entrada {
@@ -30,9 +33,54 @@
   }
 }
 
+/* Turno recién agendado por el asistente en el panel. */
+@keyframes nuevo-entra {
+  from {
+    opacity: 0;
+    transform: translateY(-4px) scale(0.92);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes nuevo-brillo {
+  0% {
+    box-shadow: 0 0 0 0 rgb(251 191 36 / 0.65);
+  }
+  100% {
+    box-shadow: 0 0 0 10px rgb(251 191 36 / 0);
+  }
+}
+
+@keyframes contador {
+  from {
+    transform: scale(0.6);
+    opacity: 0.3;
+  }
+  to {
+    transform: none;
+    opacity: 1;
+  }
+}
+
+@keyframes latido {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.35;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .animate-entrada,
-  .animate-punto {
+  .animate-punto,
+  .animate-nuevo,
+  .animate-contador,
+  .animate-latido {
     animation: none;
   }
 }
